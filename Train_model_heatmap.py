@@ -372,6 +372,7 @@ class Train_model_heatmap(Train_model_frontend):
                 "loss_det_warp": loss_det_warp,
                 "positive_dist": positive_dist,
                 "negative_dist": negative_dist,
+                "lr": np.array(self.scheduler.get_last_lr()[0]) # wrap cause of later code calling .item() on all these
             }
         )
 
@@ -380,6 +381,7 @@ class Train_model_heatmap(Train_model_frontend):
         if train:
             loss.backward()
             self.optimizer.step()
+            self.scheduler.step()
 
         skip_validation_on_this_step = skip_val_on_iter0 and n_iter == 0
         if ((n_iter % tb_interval == 0) and not skip_validation_on_this_step) or task == "val":
@@ -519,7 +521,7 @@ class Train_model_heatmap(Train_model_frontend):
 
     def heatmap_to_nms(self, images_dict, heatmap, name):
         """
-        return: 
+        return:
             heatmap_nms_batch: np [batch, H, W]
         """
         from utils.var_dim import toNumpy
@@ -638,7 +640,7 @@ class Train_model_heatmap(Train_model_frontend):
     @staticmethod
     def flatten_64to1(semi, cell_size=8):
         """
-        input: 
+        input:
             semi: tensor[batch, cell_size*cell_size, Hc, Wc]
             (Hc = H/8)
         outpus:
@@ -665,7 +667,7 @@ class Train_model_heatmap(Train_model_frontend):
         pts_nms = getPtsFromHeatmap(heatmap, conf_thresh, nms_dist)
         semi_thd_nms_sample = np.zeros_like(heatmap)
         semi_thd_nms_sample[
-            pts_nms[1, :].astype(np.int), pts_nms[0, :].astype(np.int)
+            pts_nms[1, :].astype(int), pts_nms[0, :].astype(int)
         ] = 1
         return semi_thd_nms_sample
 

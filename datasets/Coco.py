@@ -106,7 +106,7 @@ class Coco(data.Dataset):
         from utils.utils import compute_valid_mask
         from utils.photometric import ImgAugTransform, customizedTransform
         from utils.utils import inv_warp_image, inv_warp_image_batch, warp_points
-        
+
         self.sample_homography = sample_homography
         self.inv_warp_image = inv_warp_image
         self.inv_warp_image_batch = inv_warp_image_batch
@@ -237,7 +237,7 @@ class Coco(data.Dataset):
             pnts = pnts.astype(int)
             labels[pnts[:, 1], pnts[:, 0]] = 1
             return labels
-            
+
 
         to_floatTensor = lambda x: torch.tensor(x).type(torch.FloatTensor).to(self.device)
 
@@ -277,7 +277,7 @@ class Coco(data.Dataset):
             ######
 
             homographies = torch.tensor(homographies, dtype=torch.float32, device=self.device)
-            inv_homographies = torch.stack([torch.inverse(homographies[i, :, :]) for i in range(homoAdapt_iter)], device=self.device)
+            inv_homographies = torch.stack([torch.inverse(homographies[i, :, :]) for i in range(homoAdapt_iter)])
 
             # images
             warped_img = self.inv_warp_image_batch(img_aug.squeeze().repeat(homoAdapt_iter,1,1,1), inv_homographies, mode='bilinear', device=self.device).unsqueeze(0)
@@ -356,7 +356,7 @@ class Coco(data.Dataset):
                     img_cross_domain = img_o
                     pnts_cross_domain = pnts
                 warped_img = torch.tensor(img_cross_domain, dtype=torch.float32, device=self.device)
-                warped_img = self.inv_warp_image(warped_img.squeeze(), inv_homography, mode='bilinear', device=self.device).unsqueeze(0) 
+                warped_img = self.inv_warp_image(warped_img.squeeze(), inv_homography, mode='bilinear', device=self.device).unsqueeze(0)
                 if (self.enable_photo_train == True and self.action == 'train') or (self.enable_photo_val and self.action == 'val'):
                     warped_img = imgPhotometric(warped_img.cpu().numpy().squeeze()) # numpy array (H, W, 1)
                     warped_img = torch.tensor(warped_img, dtype=torch.float32, device=self.device)
@@ -424,4 +424,3 @@ class Coco(data.Dataset):
         image = image[:,:,np.newaxis]
         heatmaps = augmentation(image)
         return heatmaps.squeeze()
-

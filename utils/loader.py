@@ -47,7 +47,7 @@ def dataLoader(config, dataset='syn', warp_input=False, train=True, val=True):
     training_params = config.get('training', {})
     workers_train = training_params.get('workers_train', 1) # 16
     workers_val   = training_params.get('workers_val', 1) # 16
-        
+
     logging.info(f"workers_train: {workers_train}, workers_val: {workers_val}")
     data_transforms = {
         'train': transforms.Compose([
@@ -186,4 +186,3 @@ def pretrainedLoader(net, optimizer, epoch, path, mode='full', full_path=False):
 
 if __name__ == '__main__':
     net = modelLoader(model='SuperPointNet')
-

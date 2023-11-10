@@ -2,7 +2,7 @@ data:
     # name: 'coco'
     dataset: 'Coco' # 'coco'
 
-    labels: logs/magicpoint_synth_homoAdapt_coco/predictions  # single domain
+    labels: logs/huh/predictions  # single domain
     # labels: logs/magicpoint_synth_homoAdapt_coco_crossdomain/predictions  # cross domain
     root: # datasets/COCO
     root_split_txt: # /datasets/COCO
@@ -52,7 +52,7 @@ data:
 front_end_model: 'Train_model_heatmap'  # 'Train_model_frontend'
 
 training:
-    workers_train: 4 # 16
+    workers_train: 8 # 16
     workers_val: 2 # 2
 
 model:
@@ -65,10 +65,10 @@ model:
         loss_type: 'softmax'
 
 
-    batch_size: 8 # 32
-    eval_batch_size: 8 # 32
-    learning_rate: 0.0001 # 0.0001
-    detection_threshold: 0.005 # 0.015
+    batch_size: 16
+    eval_batch_size: 16
+    learning_rate: 0.01 # 0.0001
+    detection_threshold: 0.05 # 0.015
     lambda_loss: 1 # 1
     nms: 4
     dense_loss:
@@ -94,14 +94,14 @@ model:
 
 retrain: True # set true for new model
 reset_iter: True # set true to set the iteration number to 0
-train_iter: 200000 # 170000
-validation_interval: 5000 # 2000
-tensorboard_interval: 5000 # 200
-save_interval: 2000 # 2000
-validation_size: 5
+train_iter: 10000  # 200000
+validation_interval: 1000 # 2000
+tensorboard_interval: 1000 # 200
+save_interval: 1000 # 2000
+validation_size: 10
 skip_val_on_iter0: false
 
-pretrained: 
-pretrained: 'logs/magicpoint_synth_t2/checkpoints/superPointNet_100000_checkpoint.pth.tar'
-# pretrained: 'logs/superpoint_coco_single_domain/checkpoints/superPointNet_170400_checkpoint.pth.tar'
-
+# pretrained:
+# pretrained: 'logs/magicpoint_synth_t2/checkpoints/superPointNet_100000_checkpoint.pth.tar'
+pretrained: 'logs/superpoint_coco_single_domain/checkpoints/superPointNet_170400_checkpoint.pth.tar'
+# pretrained: 'logs/superpoint_bigbigstep_onecycle/checkpoints/superPointNet_5000_checkpoint.pth.tar'

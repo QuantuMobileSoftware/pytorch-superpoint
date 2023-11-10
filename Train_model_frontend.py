@@ -56,7 +56,7 @@ def img_overlap(img_r, img_g, img_gray):  # img_b repeat
 class Train_model_frontend(object):
     """
     # This is the base class for training classes. Wrap pytorch net to help training process.
-    
+
     """
 
     default_config = {
@@ -73,10 +73,10 @@ class Train_model_frontend(object):
             dense_desc: torch (batch_size, H, W, 256)
             pts: [batch_size, np (N, 3)]
             desc: [batch_size, np(256, N)]
-        
+
         :param config:
             dense_loss, sparse_loss (default)
-            
+
         :param save_path:
         :param device:
         :param verbose:
@@ -210,9 +210,11 @@ class Train_model_frontend(object):
                 logging.info("reset iterations to 0")
                 n_iter = 0
             return n_iter
-
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.config["model"]["learning_rate"], total_steps=self.config["train_iter"])
+        scheduler.last_epoch = n_iter-1
         self.net = net
         self.optimizer = optimizer
+        self.scheduler = scheduler
         self.n_iter = setIter(n_iter)
         pass
 
