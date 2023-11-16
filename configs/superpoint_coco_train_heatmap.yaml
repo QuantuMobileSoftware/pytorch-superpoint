@@ -95,10 +95,10 @@ model:
 retrain: True # set true for new model
 reset_iter: True # set true to set the iteration number to 0
 train_iter: 10000  # 200000
-validation_interval: 1000 # 2000
-tensorboard_interval: 1000 # 200
-save_interval: 1000 # 2000
-validation_size: 10
+validation_interval: 500 # 2000
+tensorboard_interval: 500 # 200
+save_interval: 500 # 2000
+validation_size: 30
 skip_val_on_iter0: false
 
 # pretrained:

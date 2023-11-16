@@ -15,3 +15,7 @@ scikit-learn==0.24.2
 torchgeometry==0.1.2
 torchsummary==1.5.1
 coloredlogs==15.0.1
+geopandas==0.13.2
+
+orjson==3.9.10
+PyTurboJPEG==1.7.2
