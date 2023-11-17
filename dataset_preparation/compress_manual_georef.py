@@ -3,7 +3,6 @@ import os
 import rasterio
 from rasterio.plot import reshape_as_image
 from rasterio.mask import mask
-import cv2
 from tqdm import tqdm
 from shapely.geometry import Polygon
 import geopandas as gpd

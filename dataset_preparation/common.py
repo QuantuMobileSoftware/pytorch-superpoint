@@ -26,3 +26,19 @@ class GeorefSettings:
     compressed_drone_dir = _COMP_GEOREF_DIR/"drone"
     compressed_sat_dir.mkdir(parents=True, exist_ok=True)
     compressed_drone_dir.mkdir(parents=True, exist_ok=True)
+
+
+@dataclass(frozen=True)
+class OAMSettings:
+    _OAM_DIR = _RAW_DATA_DIR/"openaerialmap"
+    _COMP_OAM_DIR = _COMPRESSED_DATA_DIR/"openaerialmap"
+
+    target_mosaic_gsd = 0.3  # m/px
+
+    mosaic_dir = _OAM_DIR/"mosaics"
+    basemap_dir = _OAM_DIR/"basemaps"
+
+    compressed_mosaic_dir = _COMP_OAM_DIR/"mosaic"
+    compressed_basemap_dir = _COMP_OAM_DIR/"basemap"
+    compressed_mosaic_dir.mkdir(parents=True, exist_ok=True)
+    compressed_basemap_dir.mkdir(parents=True, exist_ok=True)
