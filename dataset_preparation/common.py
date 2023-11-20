@@ -6,12 +6,12 @@ _RAW_DATA_DIR = Path("/home/topkech/work/sat_datasets/cross-domain-raw")
 
 @dataclass(frozen=True)
 class GeorefSettings:
-    _GEOREF_DIR = _RAW_DATA_DIR/"manual_georeference"
-    _COMP_GEOREF_DIR = _COMPRESSED_DATA_DIR/"manual_georeference"
+    _RAW_DIR = _RAW_DATA_DIR/"manual_georeference"
+    _COMP_DIR = _COMPRESSED_DATA_DIR/"manual_georeference"
 
-    progress_file = _GEOREF_DIR/"Manual_Georeferencing_Progress.csv"
-    sat_dir = _GEOREF_DIR/"sat_crops"
-    drone_dir = _GEOREF_DIR/"referenced_drone"
+    progress_file = _RAW_DIR/"Manual_Georeferencing_Progress.csv"
+    sat_dir = _RAW_DIR/"sat_crops"
+    drone_dir = _RAW_DIR/"referenced_drone"
 
     src2satfile = {
         "luftronix": [
@@ -22,23 +22,40 @@ class GeorefSettings:
         "matrice": [sat_dir/"matrice_300_session_2/matrice_300_session_2.tif"]
     }
 
-    compressed_sat_dir = _COMP_GEOREF_DIR/"sat"
-    compressed_drone_dir = _COMP_GEOREF_DIR/"drone"
+    compressed_sat_dir = _COMP_DIR/"sat"
+    compressed_drone_dir = _COMP_DIR/"drone"
     compressed_sat_dir.mkdir(parents=True, exist_ok=True)
     compressed_drone_dir.mkdir(parents=True, exist_ok=True)
 
 
 @dataclass(frozen=True)
 class OAMSettings:
-    _OAM_DIR = _RAW_DATA_DIR/"openaerialmap"
-    _COMP_OAM_DIR = _COMPRESSED_DATA_DIR/"openaerialmap"
+    _RAW_DIR = _RAW_DATA_DIR/"openaerialmap"
+    _COMP_DIR = _COMPRESSED_DATA_DIR/"openaerialmap"
 
+    mosaic_tile_sz_px = 4096
     target_mosaic_gsd = 0.3  # m/px
 
-    mosaic_dir = _OAM_DIR/"mosaics"
-    basemap_dir = _OAM_DIR/"basemaps"
+    mosaic_dir = _RAW_DIR/"mosaics"
+    basemap_dir = _RAW_DIR/"basemaps"
 
-    compressed_mosaic_dir = _COMP_OAM_DIR/"mosaic"
-    compressed_basemap_dir = _COMP_OAM_DIR/"basemap"
+    compressed_mosaic_dir = _COMP_DIR/"mosaic"
+    compressed_basemap_dir = _COMP_DIR/"basemap"
     compressed_mosaic_dir.mkdir(parents=True, exist_ok=True)
     compressed_basemap_dir.mkdir(parents=True, exist_ok=True)
+
+
+@dataclass(frozen=True)
+class MaxarSettings:
+    _RAW_DIR = _RAW_DATA_DIR/"maxar"
+    _COMP_DIR = _COMPRESSED_DATA_DIR/"maxar"
+
+    maxar_tile_sz_px = 4096
+
+    maxar_dir = _RAW_DIR/"maxar"
+    planet_dir = _RAW_DIR/"planet"
+
+    compressed_maxar_dir = _COMP_DIR/"maxar"
+    compressed_planet_dir = _COMP_DIR/"planet"
+    compressed_maxar_dir.mkdir(parents=True, exist_ok=True)
+    compressed_planet_dir.mkdir(parents=True, exist_ok=True)
