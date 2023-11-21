@@ -6,22 +6,30 @@ from rasterio.enums import Resampling
 from rasterio.mask import mask
 from rasterio.plot import reshape_as_image
 from rasterio.warp import reproject
+from rasterio.windows import get_data_window, Window
 import geopandas as gpd
+import numpy as np
 from tqdm import tqdm
+import rioxarray
+from pyproj import Transformer
 
 from common import MaxarSettings
 from utils.io import write_image
 
+class YAWindow():
+    def __init__(self, top, left, bottom, right, transfrom, crs) -> None:
+        self.top_px,self.left_px,self.bottom_px,self.right_px = top,left,bottom,right
+        self.transform = transfrom
+        self.crs = crs
 
-# def tile_pairs(lr, hr):
-#     # read big raster
-#     # read small raster
-#     # crop both rasters to overlap only
-#     # walk maxar with 4096 size, crop corresponding planet
+    def bounds_geo(self):
+        # flip here cause rastio transforms give inv points or something
+        (left_crs, top_crs) = self.transform * (self.left_px, self.top_px)
+        (right_crs, bottom_crs) = self.transform * (self.right_px, self.bottom_px)
+        return left_crs, bottom_crs, right_crs, top_crs
 
-
-def renorm(num, from_max, to_max): return num / from_max * to_max
-
+    def __repr__(self) -> str:
+        return f"{(self.top_px, self.left_px, self.bottom_px, self.right_px)} in {self.crs}"
 
 
 if __name__ == "__main__":
@@ -34,45 +42,42 @@ if __name__ == "__main__":
         planet_path = MaxarSettings.planet_dir/f"{stack_name}.tif"
 
         with rio.open(maxar_path, "r") as maxar_ds:
-            bounds = maxar_ds.bounds
-            maxar_img = maxar_ds.read()
+            window = get_data_window(maxar_ds.read((1,2,3), masked=True))
+            maxar_img = maxar_ds.read((1,2,3), window=window)
+            maxar_img = reshape_as_image(maxar_img)
+            maxar_transform = maxar_ds.window_transform(window)
             maxar_crs = maxar_ds.crs
-        aoi_polygon = Polygon([
-            (bounds.left, bounds.bottom),
-            (bounds.right, bounds.bottom),
-            (bounds.right, bounds.top),
-            (bounds.left, bounds.top)
-        ])
 
-        with rio.open(planet_path, "r") as planet_ds:
-            if maxar_crs != planet_ds.crs:
-                aoi_gdf = gpd.GeoDataFrame(geometry=[aoi_polygon], crs=maxar_crs)
-                aoi_gdf.to_crs(planet_ds.crs, inplace=True)
-                aoi_polygon = aoi_gdf["geometry"].iloc[0]
-
-            planet_in_bounds, _ = mask(planet_ds, [aoi_polygon], indexes=[1,2,3], crop=True, nodata=planet_ds.nodata, all_touched=True)  # 1 based index!!!
-
-        maxar_img = reshape_as_image(maxar_img)
-        planet_in_bounds = reshape_as_image(planet_in_bounds)
-
-        renorm_lr = partial(renorm, from_max=maxar_img.shape[1], to_max=planet_in_bounds.shape[1])
-        renorm_tb = partial(renorm, from_max=maxar_img.shape[0], to_max=planet_in_bounds.shape[0])
-
-        num = 0
+        windows_maxar = []
         left, right, top, bottom = 0, MaxarSettings.maxar_tile_sz_px, 0, MaxarSettings.maxar_tile_sz_px
-        while bottom < maxar_img.shape[0]:
-            while right < maxar_img.shape[1]:
-                maxar_crop = maxar_img[top:bottom, left:right]
-
-                # TODO: just int like this misaligns images. need to resample to have topright points on the same geo coord
-                pt, pb, pl, pr = int(renorm_tb(top)), int(renorm_tb(bottom)), int(renorm_lr(left)), int(renorm_lr(right))
-                planet_crop = planet_in_bounds[pt:pb, pl:pr]
-
-                write_image(MaxarSettings.compressed_maxar_dir/f"{stack_name}_{num}.jpg", maxar_crop)
-                write_image(MaxarSettings.compressed_planet_dir/f"{stack_name}_{num}.jpg", planet_crop)
+        while top < maxar_img.shape[0]:
+            while left < maxar_img.shape[1]:
+                bounds = top, left, min(bottom, maxar_img.shape[0]), min(right, maxar_img.shape[1])
+                w = YAWindow(*bounds, maxar_transform, maxar_crs)
+                windows_maxar.append(w)
 
                 left = right
                 right += MaxarSettings.maxar_tile_sz_px
-                num += 1
             top = bottom
             bottom += MaxarSettings.maxar_tile_sz_px
+
+        planetx = rioxarray.open_rasterio(planet_path)
+        planetx_utm = planetx.rio.reproject(maxar_crs, esampling=Resampling.lanczos)
+
+        for num, mw in enumerate(windows_maxar):
+            h, w = mw.bottom_px - mw.top_px, mw.right_px - mw.left_px
+            aspect_ratio = min(h, w) / max(h, w)
+
+            # Skip before crops to avoid cropping empty arrays and rio raising errors
+            if (aspect_ratio <= MaxarSettings.min_aspect_ratio):
+                continue
+
+            maxar_crop = maxar_img[mw.top_px:mw.bottom_px, mw.left_px:mw.right_px]
+            planet_crop = reshape_as_image(planetx_utm.rio.clip_box(*mw.bounds_geo()).to_numpy())
+            empty_ratio = (np.logical_or.reduce(maxar_crop==0, axis=-1)).sum() / np.prod(maxar_crop.shape[:2])
+
+            if (empty_ratio >= MaxarSettings.max_empty_ratio):
+                continue
+
+            write_image(MaxarSettings.compressed_maxar_dir/f"{stack_name}_{num}.jpg", maxar_crop)
+            write_image(MaxarSettings.compressed_planet_dir/f"{stack_name}_{num}.jpg", planet_crop)

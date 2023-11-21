@@ -35,6 +35,8 @@ class OAMSettings:
 
     mosaic_tile_sz_px = 4096
     target_mosaic_gsd = 0.3  # m/px
+    min_aspect_ratio = 0.3
+    max_empty_ratio = 0.5
 
     mosaic_dir = _RAW_DIR/"mosaics"
     basemap_dir = _RAW_DIR/"basemaps"
@@ -51,6 +53,8 @@ class MaxarSettings:
     _COMP_DIR = _COMPRESSED_DATA_DIR/"maxar"
 
     maxar_tile_sz_px = 4096
+    min_aspect_ratio = 0.3
+    max_empty_ratio = 0.5
 
     maxar_dir = _RAW_DIR/"maxar"
     planet_dir = _RAW_DIR/"planet"
