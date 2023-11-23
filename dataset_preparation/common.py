@@ -84,3 +84,29 @@ class SatSettings:
     compressed_other_dir = _COMP_DIR/"other"
     compressed_skysat_dir.mkdir(parents=True, exist_ok=True)
     compressed_other_dir.mkdir(parents=True, exist_ok=True)
+
+
+@dataclass(frozen=True)
+class FLAIRSettings:
+    _RAW_DIR = _RAW_DATA_DIR/"flair"
+    _COMP_DIR = _COMPRESSED_DATA_DIR/"flair"
+
+    aerial_tile_size = 512
+    img2centroid_path = _RAW_DIR/"flair-2_centroids_sp_to_patch.json"
+
+    raw_aerial_train_dir = _RAW_DIR/"flair_aerial_train"
+    raw_aerial_test_dir = _RAW_DIR/"flair_2_aerial_test"
+    raw_sen_train_dir = _RAW_DIR/"flair_sen_train"
+    raw_sen_test_dir = _RAW_DIR/"flair_2_sen_test"
+
+    aerial_dir = _COMP_DIR/f"aerial"
+    sen_dir = _COMP_DIR/f"sen"
+    aerial_dir.mkdir(parents=True, exist_ok=True)
+    sen_dir.mkdir(parents=True, exist_ok=True)
+
+
+
+# add flair here
+# redo flair compression to output pairs
+
+# each compression outputs a csv file with: split ([none,train,val,test] for data comes pre-split like FLAIR), stack_name, group_num (1 highres raster is 1 group, avoids tiles from the same raster and same tile with different lowres counterparts leaking between sets)
