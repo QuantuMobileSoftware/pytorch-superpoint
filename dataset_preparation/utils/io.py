@@ -109,5 +109,8 @@ def read_pickle(path: Path):
         res = pickle.load(f)
     return res
 
+def write_geom(path: Path, geom: shapely.Geometry):
+    gpd.GeoDataFrame([], geometry=[geom]).to_file(path)
+
 def read_geom(path: Path):
     return read_geojson(path).loc[0, "geometry"]

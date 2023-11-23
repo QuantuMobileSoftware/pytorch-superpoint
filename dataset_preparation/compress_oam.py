@@ -1,17 +1,10 @@
-from functools import partial
-
 import rasterio as rio
-from shapely.geometry import Polygon
 from rasterio.enums import Resampling
-from rasterio.mask import mask
 from rasterio.plot import reshape_as_image
-from rasterio.warp import reproject
-from rasterio.windows import get_data_window, Window
-import geopandas as gpd
+from rasterio.windows import get_data_window
 import numpy as np
 from tqdm import tqdm
 import rioxarray
-from pyproj import Transformer
 
 from common import OAMSettings
 from utils.io import write_image
@@ -57,8 +50,9 @@ if __name__ == "__main__":
 
         windows_mosaic = []
 
-        left, right, top, bottom = 0, OAMSettings.mosaic_tile_sz_px, 0, OAMSettings.mosaic_tile_sz_px
+        top, bottom = 0, OAMSettings.mosaic_tile_sz_px
         while top < mosaic_img.shape[0]:
+            left, right = 0, OAMSettings.maxar_tile_sz_px
             while left < mosaic_img.shape[1]:
                 bounds = top, left, min(bottom, mosaic_img.shape[0]), min(right, mosaic_img.shape[1])
                 w = YAWindow(*bounds, mosaic_transform, mosaic_crs)
@@ -81,10 +75,15 @@ if __name__ == "__main__":
                 continue
 
             mosaic_crop = mosaic_img[mw.top_px:mw.bottom_px, mw.left_px:mw.right_px]
-            basemap_crop = reshape_as_image(basemapx_utm.rio.clip_box(*mw.bounds_geo()).to_numpy())
-            empty_ratio = (np.logical_or.reduce(mosaic_crop==0, axis=-1)).sum() / np.prod(mosaic_crop.shape[:2])
+            try:
+                basemap_crop = reshape_as_image(basemapx_utm.rio.clip_box(*mw.bounds_geo()).to_numpy())
+            except rioxarray.exceptions.NoDataInBounds:
+                print("No data")
+                continue
 
-            if (empty_ratio >= OAMSettings.max_empty_ratio):
+            empty_ratio_maxar = (np.logical_or.reduce(mosaic_crop==0, axis=-1)).sum() / np.prod(mosaic_crop.shape[:2])
+            empty_ratio_planet = (np.logical_or.reduce(basemap_crop==0, axis=-1)).sum() / np.prod(basemap_crop.shape[:2])
+            if (empty_ratio_maxar >= OAMSettings.max_empty_ratio) or (empty_ratio_planet >= OAMSettings.max_empty_ratio):
                 continue
 
             write_image(OAMSettings.compressed_mosaic_dir/f"{stack_name}_{num}.jpg", mosaic_crop)

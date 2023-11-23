@@ -63,3 +63,24 @@ class MaxarSettings:
     compressed_planet_dir = _COMP_DIR/"planet"
     compressed_maxar_dir.mkdir(parents=True, exist_ok=True)
     compressed_planet_dir.mkdir(parents=True, exist_ok=True)
+
+
+@dataclass(frozen=True)
+class SatSettings:
+    _RAW_DIR = _RAW_DATA_DIR/"satellites"
+    _COMP_DIR = _COMPRESSED_DATA_DIR/"satellites"
+
+    bad_skysats = ["20231030_065840_ssc4_u0001_visual"]
+
+    skysat_tile_sz_px = 4096
+    min_aspect_ratio = 0.3
+    max_empty_ratio = 0.5
+
+    skysat_dir = _RAW_DIR/"SkySat"
+    planet_dir = _RAW_DIR/"PlanetScope"
+    sentinel_dir = _RAW_DIR/"Sentinel2"
+
+    compressed_skysat_dir = _COMP_DIR/"skysat"
+    compressed_other_dir = _COMP_DIR/"other"
+    compressed_skysat_dir.mkdir(parents=True, exist_ok=True)
+    compressed_other_dir.mkdir(parents=True, exist_ok=True)
