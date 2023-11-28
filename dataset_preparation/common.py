@@ -2,30 +2,9 @@ from pathlib import Path
 from dataclasses import dataclass
 
 _COMPRESSED_DATA_DIR = Path("/home/topkech/work/sat_datasets/cross-domain-compressed")
-_RAW_DATA_DIR = Path("/home/topkech/work/sat_datasets/cross-domain-raw")
-
-@dataclass(frozen=True)
-class GeorefSettings:
-    _RAW_DIR = _RAW_DATA_DIR/"manual_georeference"
-    _COMP_DIR = _COMPRESSED_DATA_DIR/"manual_georeference"
-
-    progress_file = _RAW_DIR/"Manual_Georeferencing_Progress.csv"
-    sat_dir = _RAW_DIR/"sat_crops"
-    drone_dir = _RAW_DIR/"referenced_drone"
-
-    src2satfile = {
-        "luftronix": [
-            sat_dir/"S2A_MSIL1C_20221109T092211_N0400_R093_T34UGA_20221109T112315.SAFE/GRANULE/L1C_T34UGA_A038557_20221109T092343/IMG_DATA/T34UGA_20221109T092211_TCI.jp2",
-            sat_dir/"SatNav_Lviv_2022-12-28_PS_psscene_visual/files/PSScene/20221228_085656_24_2475/visual/20221228_085656_24_2475_3B_Visual_modified.tif"
-        ],
-        "dji": [sat_dir/"djimini2_23_12_2022_large/djimini2_23_12_2022_large.tif"],
-        "matrice": [sat_dir/"matrice_300_session_2/matrice_300_session_2.tif"]
-    }
-
-    compressed_sat_dir = _COMP_DIR/"sat"
-    compressed_drone_dir = _COMP_DIR/"drone"
-    compressed_sat_dir.mkdir(parents=True, exist_ok=True)
-    compressed_drone_dir.mkdir(parents=True, exist_ok=True)
+_RAW_DATA_DIR = Path("/larg/cross-domain-raw")
+SEED = 424242
+SPLIT_FILE = _COMPRESSED_DATA_DIR/"split.csv"
 
 
 @dataclass(frozen=True)
@@ -46,6 +25,8 @@ class OAMSettings:
     compressed_mosaic_dir.mkdir(parents=True, exist_ok=True)
     compressed_basemap_dir.mkdir(parents=True, exist_ok=True)
 
+    subset_file = _COMP_DIR/"subset.csv"
+
 
 @dataclass(frozen=True)
 class MaxarSettings:
@@ -64,6 +45,7 @@ class MaxarSettings:
     compressed_maxar_dir.mkdir(parents=True, exist_ok=True)
     compressed_planet_dir.mkdir(parents=True, exist_ok=True)
 
+    subset_file = _COMP_DIR/"subset.csv"
 
 @dataclass(frozen=True)
 class SatSettings:
@@ -85,6 +67,8 @@ class SatSettings:
     compressed_skysat_dir.mkdir(parents=True, exist_ok=True)
     compressed_other_dir.mkdir(parents=True, exist_ok=True)
 
+    subset_file = _COMP_DIR/"subset.csv"
+
 
 @dataclass(frozen=True)
 class FLAIRSettings:
@@ -99,10 +83,12 @@ class FLAIRSettings:
     raw_sen_train_dir = _RAW_DIR/"flair_sen_train"
     raw_sen_test_dir = _RAW_DIR/"flair_2_sen_test"
 
-    aerial_dir = _COMP_DIR/f"aerial"
-    sen_dir = _COMP_DIR/f"sen"
+    aerial_dir = _COMP_DIR/"aerial"
+    sen_dir = _COMP_DIR/"sen"
     aerial_dir.mkdir(parents=True, exist_ok=True)
     sen_dir.mkdir(parents=True, exist_ok=True)
+
+    subset_file = _COMP_DIR/"subset.csv"
 
 
 
@@ -110,3 +96,13 @@ class FLAIRSettings:
 # redo flair compression to output pairs
 
 # each compression outputs a csv file with: split ([none,train,val,test] for data comes pre-split like FLAIR), stack_name, group_num (1 highres raster is 1 group, avoids tiles from the same raster and same tile with different lowres counterparts leaking between sets)
+
+
+import pandas as pd
+class Subset:
+    def __init__(self) -> None:
+        self._data = []
+    def add_item(self, split, stack_name, group_num):
+        self._data.append({"split": split, "stack_name": stack_name, "group_num": group_num})
+    def save(self, path):
+        pd.DataFrame(self._data).to_csv(path)

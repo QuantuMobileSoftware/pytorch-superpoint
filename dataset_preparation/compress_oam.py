@@ -1,13 +1,16 @@
 import rasterio as rio
+from rasterio.vrt import WarpedVRT
 from rasterio.enums import Resampling
 from rasterio.plot import reshape_as_image
-from rasterio.windows import get_data_window
+from rasterio.windows import get_data_window, Window
 import numpy as np
 from tqdm import tqdm
 import rioxarray
+from affine import Affine
 
-from common import OAMSettings
+from common import OAMSettings, Subset
 from utils.io import write_image
+from utils.geo import point_wgs2utm
 
 class YAWindow():
     def __init__(self, top, left, bottom, right, transfrom, crs) -> None:
@@ -26,33 +29,34 @@ class YAWindow():
 
 
 if __name__ == "__main__":
+    ss = Subset()
     mosaics = set(map(lambda x: x.stem, OAMSettings.mosaic_dir.glob("*.tif")))
     basemaps = set(map(lambda x: x.stem, OAMSettings.basemap_dir.glob("*.tif")))
     stacks = mosaics and basemaps
+
+    group_num = 0
     for stack_name in tqdm(stacks):
-        print(stack_name)
         mosaic_path = OAMSettings.mosaic_dir/f"{stack_name}.tif"
         basemap_path = OAMSettings.basemap_dir/f"{stack_name}.tif"
-        mosaic = rioxarray.open_rasterio(mosaic_path)
-        mosaic_utm = mosaic.rio.reproject(mosaic.rio.estimate_utm_crs(), resolution=OAMSettings.target_mosaic_gsd, resampling=Resampling.lanczos, nodata=0)
-        with rio.MemoryFile() as memfile:
-            with memfile.open(
-                driver='GTiff', count=int(mosaic_utm.rio.count), width=int(mosaic_utm.rio.width), height=int(mosaic_utm.rio.height),
-                dtype=str(mosaic_utm.dtype), crs=mosaic_utm.rio.crs, transform=mosaic_utm.rio.transform(recalc=True), nodata=mosaic_utm.rio.nodata
-                ) as mosaic_ds:
-                mosaic_ds.write(mosaic_utm.to_numpy())
 
-                window = get_data_window(mosaic_ds.read((1,2,3), masked=True))
-                mosaic_img = mosaic_ds.read((1,2,3), window=window)
+        with rio.open(mosaic_path, "r") as _md:
+            coef = OAMSettings.target_mosaic_gsd / _md.res[0]
+            h, w = int(_md.height/coef), int(_md.width/coef)
+            # TODO: calc crs
+            utm_crs = point_wgs2utm(*_md.lnglat())
+            with WarpedVRT(_md, crs=utm_crs, warp_mem_limit=50000, warp_extras={'NUM_THREADS':7}) as mosaic_ds:
+                window = get_data_window(mosaic_ds.read((1,2,3), out_shape=(h,w), masked=True))
+                res_window = Window(window.col_off*coef, window.row_off*coef, window.width*coef, window.height*coef)
+                mosaic_img = mosaic_ds.read((1,2,3), out_shape=(h,w), window=res_window)
                 mosaic_img = reshape_as_image(mosaic_img)
-                mosaic_transform = mosaic_ds.window_transform(window)
+                mosaic_transform = mosaic_ds.window_transform(res_window)
+                mosaic_transform = Affine(OAMSettings.target_mosaic_gsd, mosaic_transform.b, mosaic_transform.c, mosaic_transform.d, -OAMSettings.target_mosaic_gsd, mosaic_transform.f)
                 mosaic_crs = mosaic_ds.crs
-
         windows_mosaic = []
 
         top, bottom = 0, OAMSettings.mosaic_tile_sz_px
         while top < mosaic_img.shape[0]:
-            left, right = 0, OAMSettings.maxar_tile_sz_px
+            left, right = 0, OAMSettings.mosaic_tile_sz_px
             while left < mosaic_img.shape[1]:
                 bounds = top, left, min(bottom, mosaic_img.shape[0]), min(right, mosaic_img.shape[1])
                 w = YAWindow(*bounds, mosaic_transform, mosaic_crs)
@@ -63,8 +67,8 @@ if __name__ == "__main__":
             top = bottom
             bottom += OAMSettings.mosaic_tile_sz_px
 
-        basemapx = rioxarray.open_rasterio(basemap_path)
-        basemapx_utm = basemapx.rio.reproject(mosaic_crs, esampling=Resampling.lanczos)
+        basemapx = rioxarray.open_rasterio(basemap_path, cache=False)
+        basemapx_utm = basemapx.rio.reproject(mosaic_crs, resampling=Resampling.nearest)
 
         for num, mw in enumerate(windows_mosaic):
             h, w = mw.bottom_px - mw.top_px, mw.right_px - mw.left_px
@@ -80,11 +84,15 @@ if __name__ == "__main__":
             except rioxarray.exceptions.NoDataInBounds:
                 print("No data")
                 continue
-
             empty_ratio_maxar = (np.logical_or.reduce(mosaic_crop==0, axis=-1)).sum() / np.prod(mosaic_crop.shape[:2])
             empty_ratio_planet = (np.logical_or.reduce(basemap_crop==0, axis=-1)).sum() / np.prod(basemap_crop.shape[:2])
             if (empty_ratio_maxar >= OAMSettings.max_empty_ratio) or (empty_ratio_planet >= OAMSettings.max_empty_ratio):
                 continue
 
-            write_image(OAMSettings.compressed_mosaic_dir/f"{stack_name}_{num}.jpg", mosaic_crop)
-            write_image(OAMSettings.compressed_basemap_dir/f"{stack_name}_{num}.jpg", basemap_crop)
+            name = f"{stack_name}_{num}"
+            ss.add_item(None, name, group_num)
+            write_image(OAMSettings.compressed_mosaic_dir/f"{name}.jpg", mosaic_crop)
+            write_image(OAMSettings.compressed_basemap_dir/f"{name}.jpg", basemap_crop)
+        group_num += 1
+
+    ss.save(OAMSettings.subset_file)

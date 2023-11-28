@@ -6,7 +6,7 @@ import numpy as np
 from tqdm import tqdm
 import rioxarray
 
-from common import MaxarSettings
+from common import MaxarSettings, Subset
 from utils.io import write_image
 
 class YAWindow():
@@ -26,9 +26,13 @@ class YAWindow():
 
 
 if __name__ == "__main__":
+    ss = Subset()
+
     mosaics = set(map(lambda x: x.stem, MaxarSettings.maxar_dir.glob("*.tif")))
     basemaps = set(map(lambda x: x.stem, MaxarSettings.planet_dir.glob("*.tif")))
     stacks = mosaics and basemaps
+
+    group_num = 0
     for stack_name in tqdm(stacks):
         print(stack_name)
         maxar_path = MaxarSettings.maxar_dir/f"{stack_name}.tif"
@@ -56,7 +60,7 @@ if __name__ == "__main__":
             bottom += MaxarSettings.maxar_tile_sz_px
 
         planetx = rioxarray.open_rasterio(planet_path)
-        planetx_utm = planetx.rio.reproject(maxar_crs, esampling=Resampling.lanczos)
+        planetx_utm = planetx.rio.reproject(maxar_crs, esampling=Resampling.nearest)
 
         for num, mw in enumerate(windows_maxar):
             h, w = mw.bottom_px - mw.top_px, mw.right_px - mw.left_px
@@ -78,5 +82,10 @@ if __name__ == "__main__":
             if (empty_ratio_maxar >= MaxarSettings.max_empty_ratio) or (empty_ratio_planet >= MaxarSettings.max_empty_ratio):
                 continue
 
-            write_image(MaxarSettings.compressed_maxar_dir/f"{stack_name}_{num}.jpg", maxar_crop)
-            write_image(MaxarSettings.compressed_planet_dir/f"{stack_name}_{num}.jpg", planet_crop)
+            name = f"{stack_name}_{num}"
+            write_image(MaxarSettings.compressed_maxar_dir/f"{name}.jpg", maxar_crop)
+            write_image(MaxarSettings.compressed_planet_dir/f"{name}.jpg", planet_crop)
+            ss.add_item(None, name, group_num)
+        group_num += 1
+
+    ss.save(MaxarSettings.subset_file)

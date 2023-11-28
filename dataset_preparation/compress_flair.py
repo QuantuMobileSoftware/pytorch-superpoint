@@ -5,7 +5,7 @@ from rasterio.enums import Resampling
 
 from utils.io import write_image, read_json
 
-from common import FLAIRSettings
+from common import FLAIRSettings, Subset
 
 
 def build_tci(sat):
@@ -30,14 +30,17 @@ def calc_highres_bounds(img2centroid, superarea, raw_aerial_path):
 
 if __name__ == "__main__":
     img2centroid = read_json(FLAIRSettings.img2centroid_path)
+    ss = Subset()
 
-    for sendir, aerialdir in [(FLAIRSettings.raw_sen_train_dir, FLAIRSettings.raw_aerial_train_dir), (FLAIRSettings.raw_aerial_test_dir, FLAIRSettings.raw_aerial_test_dir)]:
-        superarea_paths = list(aerialdir.glob("*/*"))
-        for sa_path in tqdm(superarea_paths):
+    group_num = 0
+    for sendir, aerialdir in [(FLAIRSettings.raw_sen_train_dir, FLAIRSettings.raw_aerial_train_dir), (FLAIRSettings.raw_sen_test_dir, FLAIRSettings.raw_aerial_test_dir)]:
+        split = "train" if sendir == FLAIRSettings.raw_sen_train_dir else "test"
+
+        for sa_path in tqdm(list(aerialdir.glob("*/*"))):
             superarea = str(sa_path.relative_to(aerialdir)).replace("/", "-")
 
             images = list(sa_path.glob("img/*.tif"))
-            merged, _ = merge(images, indexes=(1, 2, 3), resampling=Resampling.lanczos)  # rio indexes start with 1 !!!
+            merged, _ = merge(images, indexes=(1, 2, 3), resampling=Resampling.nearest)  # rio indexes start with 1 !!!
             merged = merged.transpose(1,2,0)
             # crop on edge tiles' centroids. It is the last known point to be (almost) pixel-to-pixel aligned between aerial and sen
             offset = FLAIRSettings.aerial_tile_size // 2
@@ -47,11 +50,20 @@ if __name__ == "__main__":
 
             # TODO: check cloud cover
             sen_path = sendir/superarea.replace("-", "/")/"sen"
+            sen_mask_path = list(sen_path.glob("*masks.npy"))[0]
+            mask = np.load(sen_mask_path)[:,1,...]  # only cloud mask
+            cloud_ratio = (mask > 80).sum(axis=(1,2)) / np.prod(mask.shape[-2:])
+            top3_cloudless = cloud_ratio.argsort()[:3]
+
             sen_path = list(sen_path.glob("*data.npy"))[0]
-            sat = np.load(sen_path)
+            sat = np.load(sen_path)[top3_cloudless]
             tci = build_tci(sat)
             tci = tci[:, :, miny:maxy, minx:maxx]
 
             for i, tci_at_time in enumerate(tci):
-                write_image(FLAIRSettings.aerial_dir/f"{superarea}_{i}.jpg", merged)
-                write_image(FLAIRSettings.sen_dir/f"{superarea}_{i}.jpg", tci_at_time.transpose(1,2,0), rgb=False)
+                stack_name = f"{superarea}_{i}"
+                ss.add_item(split, stack_name, group_num)
+                write_image(FLAIRSettings.aerial_dir/f"{stack_name}.jpg", merged)
+                write_image(FLAIRSettings.sen_dir/f"{stack_name}.jpg", tci_at_time.transpose(1,2,0), rgb=False)
+            group_num += 1
+    ss.save(FLAIRSettings.subset_file)
