@@ -2,6 +2,7 @@
 paths defined here are used in many places
 """
 
+COMPRESSED_CROSS_DOMAIN_DIR = "/home/topkech/work/sat_datasets/cross-domain-compressed"
 DATA_PATH = 'datasets' # path for datasets
 EXPER_PATH = 'logs' # path for saving checkpoints
 SYN_TMPDIR = './datasets/'  # path for dumping synthetic data
