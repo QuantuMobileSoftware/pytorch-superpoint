@@ -1,6 +1,6 @@
 data:
     dataset: 'CrossDomain'  # 'coco' 'hpatches'
-    export_folder: 'train' # train, val
+    export_folder: 'val' # train, val
     preprocessing:
         resize: [240, 320]
         # resize: [480, 640]
@@ -28,7 +28,7 @@ data:
                 patch_ratio: 0.85
 
 training:
-    workers_test: 2
+    workers_test: 0
 
 model:
     # name: 'SuperPointNet' # 'SuperPointNet_gauss2'
@@ -39,7 +39,7 @@ model:
     eval_batch_size: 1
     detection_threshold: 0.005 # 0.015
     nms: 4
-    top_k: 600
+    top_k: 2400  # was 600, have 4x-ish larger image.
     subpixel:
         enable: true
 

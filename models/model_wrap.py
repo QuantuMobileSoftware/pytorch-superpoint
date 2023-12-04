@@ -371,7 +371,7 @@ class SuperPointFrontend_torch(object):
         # print("heapmap shape: ", heatmap.shape)
         pts = [self.getPtsFromHeatmap(heatmap[i,:,:,:].cpu().detach().numpy()) for i in range(batch_size)]
         self.pts = pts
-        
+
 
 
         if self.subpixel:
@@ -632,5 +632,3 @@ class PointTracker(object):
                 if i == N - 2:
                     clr2 = (255, 0, 0)
                     cv2.circle(out, p2, stroke, clr2, -1, lineType=16)
-
-

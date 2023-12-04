@@ -263,6 +263,7 @@ def export_detector_homoAdapt_gpu(config, output_dir, args):
         print("==> Successfully loaded pre-trained network.")
 
         fe.net_parallel()
+        fe.net.eval()
         print(path)
         # save to files
         save_file = save_output / "export.txt"
@@ -306,12 +307,21 @@ def export_detector_homoAdapt_gpu(config, output_dir, args):
                 continue
 
         # pass through network
-        heatmap = fe.run(img, onlyHeatmap=True, train=False)
-        outputs = combine_heatmap(heatmap, inv_homographies, mask_2D, device=device)
-        pts = fe.getPtsFromHeatmap(outputs.detach().cpu().squeeze())  # (x,y, prob)
+        pts = []
+        i, j = 0, 10
+        while i < img.shape[0]:
+            heatmap = fe.run(img[i:j], onlyHeatmap=True, train=False)
+            heatmap = torch.nn.functional.interpolate(heatmap, img.shape[-2:], mode="bilinear")
+            outputs = combine_heatmap(heatmap, inv_homographies[:,i:j], mask_2D[i:j], device=device)
+            _pts = fe.getPtsFromHeatmap(outputs.detach().cpu().squeeze())  # (x,y, prob)
+            pts.append(_pts)
+            i += 10; j += 10
+        pts = np.hstack(pts)
+        inds = np.argsort(pts[2, :])
+        pts = pts[:, inds[::-1]]  # Re-sort by confidence.
 
         # subpixel prediction
-        if config["model"]["subpixel"]["enable"]:
+        if config["model"]["subpixel"]["enable"] and (pts.shape[1] != 0):
             fe.heatmap = outputs  # tensor [batch, 1, H, W]
             print("outputs: ", outputs.shape)
             print("pts: ", pts.shape)
@@ -320,6 +330,7 @@ def export_detector_homoAdapt_gpu(config, output_dir, args):
 
         ## top K points
         pts = pts.transpose()
+        pts = pts[np.isfinite(pts).all(axis=1)]
         print("total points: ", pts.shape)
         print("pts: ", pts[:5])
         if top_k:

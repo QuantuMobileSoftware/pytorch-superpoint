@@ -1,8 +1,8 @@
 data:
     # name: 'coco'
-    dataset: 'Coco' # 'coco'
+    dataset: 'CrossDomain' # 'coco'
 
-    # labels: logs/huh/predictions  # single domain
+    labels: logs/export_magicpoint_crossdomain/predictions  # single domain
     # labels: logs/magicpoint_synth_homoAdapt_coco_crossdomain/predictions  # cross domain
     root: # datasets/COCO
     root_split_txt: # /datasets/COCO
