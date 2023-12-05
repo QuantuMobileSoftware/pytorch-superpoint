@@ -173,8 +173,8 @@ class CrossDomain(data.Dataset):
         H, W = lr_image.shape
         imshape = torch.tensor(lr_image.shape, device=self.device)
 
-        lr_image = torch.tensor(lr_image, dtype=torch.float32).to(self.device).view(-1, *lr_image.shape)
-        hr_image = torch.tensor(hr_image, dtype=torch.float32).to(self.device).view(-1, *lr_image.shape)
+        lr_image = torch.tensor(lr_image, dtype=torch.float32).to(self.device).view(-1, *imshape)
+        hr_image = torch.tensor(hr_image, dtype=torch.float32).to(self.device).view(-1, *imshape)
 
         valid_mask = compute_valid_mask(imshape, inv_homography=torch.eye(3, device=self.device), device=self.device)
         input.update({'image': hr_image, "image_cross_domain": lr_image})
@@ -201,6 +201,7 @@ class CrossDomain(data.Dataset):
             input.update({'homographies': homographies, 'inv_homographies': inv_homographies})
 
         if self.labels:
+            pnts = pnts.reshape(-1, 2)  # sometimes we get (0,) with no points
             labels = self.points_to_2D(pnts, H, W)
             labels_2D = to_floatTensor(labels[np.newaxis,:,:])
             input.update({'labels_2D': labels_2D})
@@ -208,23 +209,6 @@ class CrossDomain(data.Dataset):
             ## residual
             labels_res = torch.zeros((2, H, W)).type(torch.FloatTensor).to(self.device)
             input.update({'labels_res': labels_res})
-
-            if (self.enable_homo_train == True and self.action == 'train') or (self.enable_homo_val and self.action == 'val'):
-                homography = sample_homography(np.array([2, 2]), shift=-1, **self.config['augmentation']['homographic']['params'])
-
-                ##### use inverse from the sample homography
-                homography = np.linalg.inv(homography)
-                inv_homography = np.linalg.inv(homography)
-                inv_homography = torch.tensor(inv_homography).to(torch.float32)
-                homography = torch.tensor(homography).to(torch.float32)
-                warped_img = inv_warp_image(hr_image.squeeze(), inv_homography, mode='bilinear', device=self.device).unsqueeze(0)
-
-                ##### check #####
-                warped_set = warpLabels(pnts, H, W, homography)
-                warped_labels = warped_set['labels']
-                valid_mask = compute_valid_mask(torch.tensor([H, W]), inv_homography=inv_homography, erosion_radius=self.config['augmentation']['homographic']['valid_border_margin'], device=self.device)
-                input.update({'image': warped_img, 'labels_2D': warped_labels, 'valid_mask': valid_mask})
-
 
             if self.config['warped_pair']['enable']:
                 homography = sample_homography(np.array([2, 2]), shift=-1, **self.config['warped_pair']['params'])
@@ -235,8 +219,8 @@ class CrossDomain(data.Dataset):
                 homography = torch.tensor(homography, device=self.device).type(torch.FloatTensor).to(self.device)
                 inv_homography = torch.tensor(inv_homography, device=self.device).type(torch.FloatTensor).to(self.device)
 
-                warped_img = torch.tensor(lr_image, dtype=torch.float32, device=self.device)
-                warped_img = inv_warp_image(warped_img.squeeze(), inv_homography, mode='bilinear', device=self.device).unsqueeze(0)
+                # warped_img = torch.tensor(lr_image, dtype=torch.float32, device=self.device)
+                warped_img = inv_warp_image(lr_image.squeeze(), inv_homography, mode='bilinear', device=self.device).unsqueeze(0)
                 warped_img = warped_img.view(-1, H, W)
 
                 warped_set = warpLabels(pnts, H, W, homography, bilinear=True, device=self.device)

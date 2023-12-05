@@ -164,7 +164,7 @@ def loadConfig(filename):
     return config
 
 def append_csv(file='foo.csv', arr=[]):
-    import csv   
+    import csv
     # fields=['first','second','third']
     # pre = lambda i: ['{0:.3f}'.format(x) for x in i]
     with open(file, 'a') as f:
@@ -338,7 +338,7 @@ def inv_warp_image_batch(img, mat_homo_inv, device='cpu', mode='bilinear'):
         mat_homo_inv = mat_homo_inv.view(1,3,3)
 
     Batch, channel, H, W = img.shape
-    coor_cells = torch.stack(torch.meshgrid(torch.linspace(-1, 1, W), torch.linspace(-1, 1, H)), dim=2)
+    coor_cells = torch.stack(torch.meshgrid(torch.linspace(-1, 1, W), torch.linspace(-1, 1, H), indexing="ij"), dim=2)
     coor_cells = coor_cells.transpose(0, 1)
     coor_cells = coor_cells.to(device)
     coor_cells = coor_cells.contiguous()
@@ -573,9 +573,9 @@ def getPtsFromHeatmap(heatmap, conf_thresh, nms_dist):
     return pts
 
 def box_nms(prob, size, iou=0.1, min_prob=0.01, keep_top_k=0):
-    # requires https://github.com/open-mmlab/mmdetection. 
+    # requires https://github.com/open-mmlab/mmdetection.
     # Warning : BUILD FROM SOURCE using command MMCV_WITH_OPS=1 pip install -e
-    # from mmcv.ops import nms as nms_mmdet 
+    # from mmcv.ops import nms as nms_mmdet
     from torchvision.ops import nms
 
     """Performs non maximum suppression on the heatmap by considering hypothetical
@@ -732,11 +732,11 @@ def denormPts(pts, shape):
 #     # concat image and dense_desc
 #     # extract patches
 
-#     # 
+#     #
 #     pass
 
 
-def descriptor_loss(descriptors, descriptors_warped, homographies, mask_valid=None, 
+def descriptor_loss(descriptors, descriptors_warped, homographies, mask_valid=None,
                     cell_size=8, lamda_d=250, device='cpu', descriptor_dist=4, **config):
 
     '''
