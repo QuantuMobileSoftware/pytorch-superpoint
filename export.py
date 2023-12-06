@@ -307,18 +307,17 @@ def export_detector_homoAdapt_gpu(config, output_dir, args):
                 continue
 
         # pass through network
-        pts = []
-        i, j = 0, 10
+        batch = 10
+        heatmaps = []
+        i, j = 0, batch
         while i < img.shape[0]:
             heatmap = fe.run(img[i:j], onlyHeatmap=True, train=False)
             heatmap = torch.nn.functional.interpolate(heatmap, img.shape[-2:], mode="bilinear")
-            outputs = combine_heatmap(heatmap, inv_homographies[:,i:j], mask_2D[i:j], device=device)
-            _pts = fe.getPtsFromHeatmap(outputs.detach().cpu().squeeze())  # (x,y, prob)
-            pts.append(_pts)
-            i += 10; j += 10
-        pts = np.hstack(pts)
-        inds = np.argsort(pts[2, :])
-        pts = pts[:, inds[::-1]]  # Re-sort by confidence.
+            heatmaps.append(heatmap)
+            i += batch; j += batch
+        heatmaps = torch.cat(heatmaps, dim=0)
+        outputs = combine_heatmap(heatmaps, inv_homographies, mask_2D, device=device)
+        pts = fe.getPtsFromHeatmap(outputs.detach().cpu().squeeze())  # (x,y, prob)
 
         # subpixel prediction
         if config["model"]["subpixel"]["enable"] and (pts.shape[1] != 0):
