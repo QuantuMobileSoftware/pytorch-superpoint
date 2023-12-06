@@ -7,7 +7,7 @@ import cv2
 import pandas as pd
 import albumentations as A
 
-from utils.photometric import ImgAugTransform, customizedTransform
+from utils.photometric import ImgAugTransform
 from utils.homographies import sample_homography_np as sample_homography
 from utils.utils import inv_warp_image
 from utils.utils import compute_valid_mask
