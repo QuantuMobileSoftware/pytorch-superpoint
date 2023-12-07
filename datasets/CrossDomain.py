@@ -99,6 +99,8 @@ class CrossDomain(data.Dataset):
         assert task in ["train", "val", "test"]
         base_path = Path(COMPRESSED_CROSS_DOMAIN_DIR)
         split = pd.read_csv(base_path/"split.csv").query("split == @task")
+        split = split[~split["hr_file"].str.contains("openaerialmap")]
+        # split = split[~split["hr_file"].str.contains("flair")]
         self.task = task
 
         self.aug_common = get_aug_common(self.task, *config["preprocessing"]["resize"], export=export)
