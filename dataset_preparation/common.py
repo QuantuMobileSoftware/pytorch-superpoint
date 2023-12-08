@@ -64,8 +64,10 @@ class SatSettings:
 
     compressed_skysat_dir = _COMP_DIR/"skysat"
     compressed_other_dir = _COMP_DIR/"other"
+    valid_mask_dir = _COMP_DIR/"valid_mask"
     compressed_skysat_dir.mkdir(parents=True, exist_ok=True)
     compressed_other_dir.mkdir(parents=True, exist_ok=True)
+    valid_mask_dir.mkdir(parents=True, exist_ok=True)
 
     subset_file = _COMP_DIR/"subset.csv"
 

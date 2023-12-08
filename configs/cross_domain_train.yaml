@@ -2,7 +2,9 @@ data:
     dataset: 'CrossDomain'
     # dataset: "Coco"
 
-    labels: logs/export_magicpoint_crossdomain_nooam_lowthresh/predictions
+    labels: logs/trash/predictions
+    # labels: logs/export_magicpoint_crossdomain_nooam_lowthresh/predictions
+    # labels: logs/export_magicpoint_crossdomain/predictions
     # labels: logs/huh/predictions
     # labels: logs/magicpoint_synth_homoAdapt_coco_crossdomain/predictions  # cross domain
 
@@ -11,6 +13,8 @@ data:
         params:
             GaussianBlur: {sigma: 0.2}
 
+    single_domain: false
+    # single_domain: true
 
     cache_in_memory: false
     preprocessing:
@@ -70,7 +74,7 @@ model:
 
 retrain: True # set true for new model
 reset_iter: True # set true to set the iteration number to 0
-train_iter: 20000  # 200000
+train_iter: 10000  # 200000
 validation_interval: 500 # 2000
 tensorboard_interval: 250 # 200
 save_interval: 500 # 2000

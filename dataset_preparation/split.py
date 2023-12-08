@@ -40,8 +40,9 @@ if __name__ == "__main__":
 
     # SAT
     sat_ss = pd.read_csv(SatSettings.subset_file, index_col=0)
-    sat_ss["hr_file"] = sat_ss["stack_name"].apply(lambda x: f"{(SatSettings.compressed_skysat_dir/x).relative_to(_COMPRESSED_DATA_DIR)}")
-    sat_ss["lr_file"] = sat_ss["stack_name"].apply(lambda x: f"{(SatSettings.compressed_other_dir/x).relative_to(_COMPRESSED_DATA_DIR)}")
+    sat_ss["hr_file"] = sat_ss["stack_name"].apply(lambda x: f"{(SatSettings.compressed_skysat_dir/f'{x}.jpg').relative_to(_COMPRESSED_DATA_DIR)}")
+    sat_ss["lr_file"] = sat_ss["stack_name"].apply(lambda x: f"{(SatSettings.compressed_other_dir/f'{x}.jpg').relative_to(_COMPRESSED_DATA_DIR)}")
+    sat_ss["valid_mask_file"] = sat_ss["stack_name"].apply(lambda x: f"{(SatSettings.valid_mask_dir/f'{x}.npz').relative_to(_COMPRESSED_DATA_DIR)}")
 
     trainval_g, test_g = split_groups(sat_ss, 0.8)
     trainval_ss = sat_ss.query("group_num in @trainval_g")

@@ -86,8 +86,8 @@ def read_image(path, rgb=True):
 
 
 def write_image(path, im, rgb=True):
-    if rgb and len(im.shape) == 3:
-        im = cv2.cvtColor(im, cv2.COLOR_RGB2BGR)
+    if rgb and (len(im.shape) > 2):
+        im = cv2.cvtColor(im, cv2.COLOR_RGB2BGR if im.shape[-1] == 3 else cv2.COLOR_RGBA2BGRA)
     res = cv2.imwrite(str(path), im)
     if not res: raise ValueError(f"Cannot write to {path}")
 

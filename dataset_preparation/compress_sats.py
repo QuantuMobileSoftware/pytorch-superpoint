@@ -1,5 +1,6 @@
 from itertools import chain
 
+import cv2
 import rasterio as rio
 from rasterio.enums import Resampling
 from rasterio.plot import reshape_as_image
@@ -99,18 +100,24 @@ if __name__ == "__main__":
 
                 skysat_crop = skysat_img[mw.top_px:mw.bottom_px, mw.left_px:mw.right_px]
                 try:
-                    other_crop = reshape_as_image(otherx_utm.rio.clip_box(*mw.bounds_geo()).to_numpy())
+                    other_crop = reshape_as_image(otherx_utm.rio.clip_box(*mw.bounds_geo()).to_numpy()[:3])
                 except rioxarray.exceptions.NoDataInBounds:
                     print("No data")
                     continue
-                empty_ratio_skysat = (np.logical_or.reduce(skysat_crop==0, axis=-1)).sum() / np.prod(skysat_crop.shape[:2])
-                empty_ratio_other = (np.logical_or.reduce(other_crop==0, axis=-1)).sum() / np.prod(other_crop.shape[:2])
-                if (empty_ratio_skysat >= SatSettings.max_empty_ratio) or (empty_ratio_other >= SatSettings.max_empty_ratio):
+                skysat_crop = cv2.resize(skysat_crop, (other_crop.shape[1], other_crop.shape[0]), interpolation=cv2.INTER_LANCZOS4)
+                empty_skysat = np.logical_or.reduce(skysat_crop==0, axis=-1)
+                empty_other = np.logical_or.reduce(other_crop==0, axis=-1)
+                empty = np.logical_or(empty_skysat, empty_other)
+                empty_ratio = empty.sum() / np.prod(skysat_crop.shape[:2])
+                if (empty_ratio >= SatSettings.max_empty_ratio):
                     continue
 
+                skysat_crop = skysat_crop * ~empty[...,np.newaxis]
+                other_crop = other_crop * ~empty[...,np.newaxis]
                 name = f"{stack_name}_{num}"
                 write_image(SatSettings.compressed_skysat_dir/f"{name}.jpg", skysat_crop)
                 write_image(SatSettings.compressed_other_dir/f"{name}.jpg", other_crop)
+                (~empty).tofile(SatSettings.valid_mask_dir/f"{name}.npz")
                 ss.add_item(None, name, group_num)
         group_num += 1
     ss.save(SatSettings.subset_file)
