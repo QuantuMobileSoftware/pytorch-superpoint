@@ -674,7 +674,7 @@ def nms_fast(in_corners, H, W, dist_thresh):
     return out, out_inds
 
 
-def compute_valid_mask(image_shape, inv_homography, device='cpu', erosion_radius=0):
+def compute_valid_mask(image_shape, inv_homography, device='cpu', erosion_radius=0, initial_mask=None):
     """
     Compute a boolean mask of the valid pixels resulting from an homography applied to
     an image of a given shape. Pixels that are False correspond to bordering artifacts.
@@ -692,7 +692,11 @@ def compute_valid_mask(image_shape, inv_homography, device='cpu', erosion_radius
     if inv_homography.dim() == 2:
         inv_homography = inv_homography.view(-1, 3, 3)
     batch_size = inv_homography.shape[0]
-    mask = torch.ones(batch_size, 1, image_shape[0], image_shape[1]).to(device)
+    if initial_mask is not None:
+        mask = torch.tensor(initial_mask, device=device, dtype=torch.float32).repeat([batch_size, 1, 1, 1])
+    else:
+        mask = torch.ones(batch_size, 1, image_shape[0], image_shape[1]).to(device)
+
     mask = inv_warp_image_batch(mask, inv_homography, device=device, mode='nearest')
     mask = mask.view(batch_size, image_shape[0], image_shape[1])
     mask = mask.cpu().numpy()

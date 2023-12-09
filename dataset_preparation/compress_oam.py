@@ -1,3 +1,4 @@
+import cv2
 import rasterio as rio
 from rasterio.vrt import WarpedVRT
 from rasterio.enums import Resampling
@@ -44,7 +45,7 @@ if __name__ == "__main__":
             h, w = int(_md.height/coef), int(_md.width/coef)
             # TODO: calc crs
             utm_crs = point_wgs2utm(*_md.lnglat())
-            with WarpedVRT(_md, crs=utm_crs, warp_mem_limit=50000, warp_extras={'NUM_THREADS':7}) as mosaic_ds:
+            with WarpedVRT(_md, crs=utm_crs, warp_mem_limit=50000, warp_extras={'NUM_THREADS':7}, resampling=Resampling.lanczos) as mosaic_ds:
                 window = get_data_window(mosaic_ds.read((1,2,3), out_shape=(h,w), masked=True))
                 res_window = Window(window.col_off*coef, window.row_off*coef, window.width*coef, window.height*coef)
                 mosaic_img = mosaic_ds.read((1,2,3), out_shape=(h,w), window=res_window)
@@ -84,15 +85,23 @@ if __name__ == "__main__":
             except rioxarray.exceptions.NoDataInBounds:
                 print("No data")
                 continue
-            empty_ratio_maxar = (np.logical_or.reduce(mosaic_crop==0, axis=-1)).sum() / np.prod(mosaic_crop.shape[:2])
-            empty_ratio_planet = (np.logical_or.reduce(basemap_crop==0, axis=-1)).sum() / np.prod(basemap_crop.shape[:2])
-            if (empty_ratio_maxar >= OAMSettings.max_empty_ratio) or (empty_ratio_planet >= OAMSettings.max_empty_ratio):
+
+            mosaic_crop = cv2.resize(mosaic_crop, (basemap_crop.shape[1], basemap_crop.shape[0]), interpolation=cv2.INTER_LANCZOS4)
+            empty_mosaic = np.logical_or.reduce(mosaic_crop==0, axis=-1)
+            empty_basemap = np.logical_or.reduce(basemap_crop==0, axis=-1)
+            empty = np.logical_or(empty_mosaic, empty_basemap)
+            empty_ratio = empty.sum() / np.prod(basemap_crop.shape[:2])
+            if (empty_ratio >= OAMSettings.max_empty_ratio):
                 continue
 
+            mosiac_crop = mosaic_crop * ~empty[...,np.newaxis]
+            basemap_crop = basemap_crop * ~empty[...,np.newaxis]
             name = f"{stack_name}_{num}"
-            ss.add_item(None, name, group_num)
             write_image(OAMSettings.compressed_mosaic_dir/f"{name}.jpg", mosaic_crop)
             write_image(OAMSettings.compressed_basemap_dir/f"{name}.jpg", basemap_crop)
+            np.save(OAMSettings.valid_mask_dir/f"{name}.npy", ~empty)
+            ss.add_item(None, name, group_num)
+
         group_num += 1
 
     ss.save(OAMSettings.subset_file)

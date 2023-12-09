@@ -22,8 +22,10 @@ class OAMSettings:
 
     compressed_mosaic_dir = _COMP_DIR/"mosaic"
     compressed_basemap_dir = _COMP_DIR/"basemap"
+    valid_mask_dir = _COMP_DIR/"valid_mask"
     compressed_mosaic_dir.mkdir(parents=True, exist_ok=True)
     compressed_basemap_dir.mkdir(parents=True, exist_ok=True)
+    valid_mask_dir.mkdir(parents=True, exist_ok=True)
 
     subset_file = _COMP_DIR/"subset.csv"
 
@@ -42,8 +44,10 @@ class MaxarSettings:
 
     compressed_maxar_dir = _COMP_DIR/"maxar"
     compressed_planet_dir = _COMP_DIR/"planet"
+    valid_mask_dir = _COMP_DIR/"valid_mask"
     compressed_maxar_dir.mkdir(parents=True, exist_ok=True)
     compressed_planet_dir.mkdir(parents=True, exist_ok=True)
+    valid_mask_dir.mkdir(parents=True, exist_ok=True)
 
     subset_file = _COMP_DIR/"subset.csv"
 
@@ -77,6 +81,8 @@ class FLAIRSettings:
     _RAW_DIR = _RAW_DATA_DIR/"flair"
     _COMP_DIR = _COMPRESSED_DATA_DIR/"flair"
 
+    max_clouded_ratio = 0.5
+
     aerial_tile_size = 512
     img2centroid_path = _RAW_DIR/"flair-2_centroids_sp_to_patch.json"
 
@@ -84,11 +90,13 @@ class FLAIRSettings:
     raw_aerial_test_dir = _RAW_DIR/"flair_2_aerial_test"
     raw_sen_train_dir = _RAW_DIR/"flair_sen_train"
     raw_sen_test_dir = _RAW_DIR/"flair_2_sen_test"
+    valid_mask_dir = _COMP_DIR/"valid_mask"
 
     aerial_dir = _COMP_DIR/"aerial"
     sen_dir = _COMP_DIR/"sen"
     aerial_dir.mkdir(parents=True, exist_ok=True)
     sen_dir.mkdir(parents=True, exist_ok=True)
+    valid_mask_dir.mkdir(parents=True, exist_ok=True)
 
     subset_file = _COMP_DIR/"subset.csv"
 

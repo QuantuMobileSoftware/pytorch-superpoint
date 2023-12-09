@@ -117,7 +117,7 @@ if __name__ == "__main__":
                 name = f"{stack_name}_{num}"
                 write_image(SatSettings.compressed_skysat_dir/f"{name}.jpg", skysat_crop)
                 write_image(SatSettings.compressed_other_dir/f"{name}.jpg", other_crop)
-                (~empty).tofile(SatSettings.valid_mask_dir/f"{name}.npz")
+                np.save(SatSettings.valid_mask_dir/f"{name}.npy", ~empty)
                 ss.add_item(None, name, group_num)
         group_num += 1
     ss.save(SatSettings.subset_file)

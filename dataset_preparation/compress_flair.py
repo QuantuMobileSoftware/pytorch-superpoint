@@ -1,3 +1,4 @@
+import cv2
 import numpy as np
 from tqdm import tqdm
 from rasterio.merge import merge
@@ -40,7 +41,7 @@ if __name__ == "__main__":
             superarea = str(sa_path.relative_to(aerialdir)).replace("/", "-")
 
             images = list(sa_path.glob("img/*.tif"))
-            merged, _ = merge(images, indexes=(1, 2, 3), resampling=Resampling.nearest)  # rio indexes start with 1 !!!
+            merged, _ = merge(images, indexes=(1, 2, 3), resampling=Resampling.lanczos)  # rio indexes start with 1 !!!
             merged = merged.transpose(1,2,0)
             # crop on edge tiles' centroids. It is the last known point to be (almost) pixel-to-pixel aligned between aerial and sen
             offset = FLAIRSettings.aerial_tile_size // 2
@@ -53,17 +54,22 @@ if __name__ == "__main__":
             sen_mask_path = list(sen_path.glob("*masks.npy"))[0]
             mask = np.load(sen_mask_path)[:,1,...]  # only cloud mask
             cloud_ratio = (mask > 80).sum(axis=(1,2)) / np.prod(mask.shape[-2:])
-            top3_cloudless = cloud_ratio.argsort()[:3]
+            top1_cloudless = cloud_ratio.argsort()[0]
+            if cloud_ratio[top1_cloudless] > FLAIRSettings.max_clouded_ratio:
+                continue
 
             sen_path = list(sen_path.glob("*data.npy"))[0]
-            sat = np.load(sen_path)[top3_cloudless]
+            sat = np.load(sen_path)[[top1_cloudless]]
             tci = build_tci(sat)
-            tci = tci[:, :, miny:maxy, minx:maxx]
+            tci = tci[0, :, miny:maxy, minx:maxx].transpose(1,2,0)
 
-            for i, tci_at_time in enumerate(tci):
-                stack_name = f"{superarea}_{i}"
-                ss.add_item(split, stack_name, group_num)
-                write_image(FLAIRSettings.aerial_dir/f"{stack_name}.jpg", merged)
-                write_image(FLAIRSettings.sen_dir/f"{stack_name}.jpg", tci_at_time.transpose(1,2,0), rgb=False)
+            merged = cv2.resize(merged, (tci.shape[1], tci.shape[0]), interpolation=cv2.INTER_LANCZOS4)
+
+            valid_mask = np.ones((tci.shape[0], tci.shape[1]))
+            stack_name = f"{superarea}"
+            write_image(FLAIRSettings.aerial_dir/f"{stack_name}.jpg", merged)
+            write_image(FLAIRSettings.sen_dir/f"{stack_name}.jpg", tci, rgb=False)
+            np.save(FLAIRSettings.valid_mask_dir/f"{stack_name}.npy", valid_mask)
+            ss.add_item(split, stack_name, group_num)
             group_num += 1
     ss.save(FLAIRSettings.subset_file)

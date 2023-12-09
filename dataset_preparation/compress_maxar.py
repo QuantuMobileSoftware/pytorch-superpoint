@@ -1,3 +1,4 @@
+import cv2
 import rasterio as rio
 from rasterio.enums import Resampling
 from rasterio.plot import reshape_as_image
@@ -60,7 +61,7 @@ if __name__ == "__main__":
             bottom += MaxarSettings.maxar_tile_sz_px
 
         planetx = rioxarray.open_rasterio(planet_path)
-        planetx_utm = planetx.rio.reproject(maxar_crs, esampling=Resampling.nearest)
+        planetx_utm = planetx.rio.reproject(maxar_crs, esampling=Resampling.lanczos)
 
         for num, mw in enumerate(windows_maxar):
             h, w = mw.bottom_px - mw.top_px, mw.right_px - mw.left_px
@@ -72,19 +73,25 @@ if __name__ == "__main__":
 
             maxar_crop = maxar_img[mw.top_px:mw.bottom_px, mw.left_px:mw.right_px]
             try:
-                planet_crop = reshape_as_image(planetx_utm.rio.clip_box(*mw.bounds_geo()).to_numpy())
+                planet_crop = reshape_as_image(planetx_utm.rio.clip_box(*mw.bounds_geo()).to_numpy()[:3])
             except rioxarray.exceptions.NoDataInBounds:
                 print("No data")
                 continue
 
-            empty_ratio_maxar = (np.logical_or.reduce(maxar_crop==0, axis=-1)).sum() / np.prod(maxar_crop.shape[:2])
-            empty_ratio_planet = (np.logical_or.reduce(planet_crop==0, axis=-1)).sum() / np.prod(planet_crop.shape[:2])
-            if (empty_ratio_maxar >= MaxarSettings.max_empty_ratio) or (empty_ratio_planet >= MaxarSettings.max_empty_ratio):
+            maxar_crop = cv2.resize(maxar_crop, (planet_crop.shape[1], planet_crop.shape[0]), interpolation=cv2.INTER_LANCZOS4)
+            empty_maxar = np.logical_or.reduce(maxar_crop==0, axis=-1)
+            empty_planet = np.logical_or.reduce(planet_crop==0, axis=-1)
+            empty = np.logical_or(empty_maxar, empty_planet)
+            empty_ratio = empty.sum() / np.prod(planet_crop.shape[:2])
+            if (empty_ratio >= MaxarSettings.max_empty_ratio):
                 continue
 
+            maxar_crop = maxar_crop * ~empty[...,np.newaxis]
+            planet_crop = planet_crop* ~empty[...,np.newaxis]
             name = f"{stack_name}_{num}"
             write_image(MaxarSettings.compressed_maxar_dir/f"{name}.jpg", maxar_crop)
             write_image(MaxarSettings.compressed_planet_dir/f"{name}.jpg", planet_crop)
+            np.save(MaxarSettings.valid_mask_dir/f"{name}.npy", ~empty)
             ss.add_item(None, name, group_num)
         group_num += 1
 

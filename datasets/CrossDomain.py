@@ -30,10 +30,10 @@ def get_aug_common(task="train", h=240, w=320, export=False):
         aug_common = A.Compose([A.NoOp()], additional_targets=targets)
     else:
         aug_common = A.Compose([
-            # A.Rotate(limit=180, border_mode=cv2.BORDER_CONSTANT, p=0.5),
-            # A.Perspective(scale=(0.05, 0.1), pad_mode=cv2.BORDER_CONSTANT, p=0.5),
-            # A.RandomResizedCrop(h, w, scale=(0.1,1), ratio=(h/w, h/w), always_apply=True),
-            A.RandomResizedCrop(h, w, scale=(0.9,1), ratio=(h/w, h/w), always_apply=True),
+            A.Rotate(limit=180, border_mode=cv2.BORDER_CONSTANT, p=0.5),
+            A.Perspective(scale=(0.05, 0.1), pad_mode=cv2.BORDER_CONSTANT, p=0.5),
+            A.RandomResizedCrop(h, w, scale=(0.1,1), ratio=(h/w, h/w), always_apply=True),
+            # A.RandomResizedCrop(h, w, scale=(0.9,1), ratio=(h/w, h/w), always_apply=True),
             # A.NoOp(),
         ], additional_targets=targets, keypoint_params=keypoint_params)
     return aug_common
@@ -43,11 +43,11 @@ def get_aug_sep(task="train", export=False):
     if export: task = "export"
     if task == "train":
         aug_px = A.Compose([
-            # A.ChannelShuffle(p=0.5),
-            # A.ColorJitter(p=0.5),
-            # A.GaussNoise(p=0.5),
-            # A.RandomBrightnessContrast(p=0.5),
-            # A.Sharpen(p=0.5),
+            A.ChannelShuffle(p=0.5),
+            A.ColorJitter(p=0.5),
+            A.GaussNoise(p=0.5),
+            A.RandomBrightnessContrast(p=0.5),
+            A.Sharpen(p=0.5),
             A.ToGray(always_apply=True),
             A.ToFloat(always_apply=True),
         ])
@@ -102,10 +102,9 @@ class CrossDomain(data.Dataset):
         assert task in ["train", "val", "test"]
         base_path = Path(COMPRESSED_CROSS_DOMAIN_DIR)
         split = pd.read_csv(base_path/"split.csv").query("split == @task")
-        # split = split[~split["hr_file"].str.contains("openaerialmap")]
+        # split = split[split["hr_file"].str.contains("maxar")]
         split = split[split["hr_file"].str.contains("satellites")]
-        split = split.query("stack_name == '20221114_114742_ssc10_u0001-20221114_073700_36_241e_3B_Visual_2'")
-        print(split.shape)
+        # split = split.query("stack_name == '20221114_114742_ssc10_u0001-20221114_073700_36_241e_3B_Visual_2'")
         self.task = task
 
         self.aug_common = get_aug_common(self.task, *config["preprocessing"]["resize"], export=export)
@@ -159,7 +158,7 @@ class CrossDomain(data.Dataset):
         # loose the res for now 'cause easier
         lr = read_jpeg(lr_file)
         hr = read_jpeg(hr_file)
-        valid_mask = np.load(valid_mask_file)
+        valid_mask = np.load(valid_mask_file).astype(int)
         return lr, hr, valid_mask
 
     def _read_random(self, lr_file, hr_file, valid_mask_file):
@@ -195,11 +194,11 @@ class CrossDomain(data.Dataset):
 
         # image
         if not self.single_domain:
-            lr_image, hr_image = self._read_pair(sample["image_cross_domain"], sample["image"], sample["valid_mask_file"])
+            lr_image, hr_image, valid_mask = self._read_pair(sample["image_cross_domain"], sample["image"], sample["valid_mask_file"])
         else:
-            lr_image, hr_image = self._read_random(sample["image_cross_domain"], sample["image"])
-        tr = self.aug_common(image=lr_image, image1=hr_image, keypoints=pnts)  # TODO: add keypoints to here if self.labels
-        lr_image, hr_image, pnts = tr["image"], tr["image1"], np.array(tr["keypoints"])
+            lr_image, hr_image, valid_mask = self._read_random(sample["image_cross_domain"], sample["image"])
+        tr = self.aug_common(image=lr_image, image1=hr_image, mask=valid_mask, keypoints=pnts)  # TODO: add keypoints to here if self.labels
+        lr_image, hr_image, initial_valid_mask, pnts = tr["image"], tr["image1"], tr["mask"], np.array(tr["keypoints"])
 
         lr_image = self.aug_sep(image=lr_image)["image"][...,0]
         hr_image = self.aug_sep(image=hr_image)["image"][...,0]
@@ -210,7 +209,7 @@ class CrossDomain(data.Dataset):
         lr_image = torch.tensor(lr_image, dtype=torch.float32).to(self.device).view(-1, *imshape)
         hr_image = torch.tensor(hr_image, dtype=torch.float32).to(self.device).view(-1, *imshape)
 
-        valid_mask = compute_valid_mask(imshape, inv_homography=torch.eye(3, device=self.device), device=self.device)
+        valid_mask = compute_valid_mask(imshape, inv_homography=torch.eye(3, device=self.device), device=self.device, initial_mask=initial_valid_mask)
         input.update({'image': hr_image, "image_cross_domain": lr_image})
         input.update({'valid_mask': valid_mask})
 
@@ -230,7 +229,7 @@ class CrossDomain(data.Dataset):
             # images
             warped_img = inv_warp_image_batch(hr_image.squeeze().repeat(homoAdapt_iter,1,1,1), inv_homographies, mode='bilinear', device=self.device).squeeze()
             # masks
-            valid_mask = compute_valid_mask(imshape, inv_homography=inv_homographies, erosion_radius=self.config['augmentation']['homographic']['valid_border_margin'], device=self.device)
+            valid_mask = compute_valid_mask(imshape, inv_homography=inv_homographies, erosion_radius=self.config['augmentation']['homographic']['valid_border_margin'], device=self.device, initial_mask=initial_valid_mask)
             input.update({'image': warped_img, 'valid_mask': valid_mask, 'image_2D': hr_image})
             input.update({'homographies': homographies, 'inv_homographies': inv_homographies})
 
@@ -269,7 +268,7 @@ class CrossDomain(data.Dataset):
                     input.update({'warped_labels_bi': warped_labels_bi.to(self.device)})
 
                 input.update({'warped_img': warped_img, 'warped_labels': warped_labels, 'warped_res': warped_res})
-                valid_mask = compute_valid_mask(torch.tensor([H, W]), inv_homography=inv_homography, erosion_radius=self.config['warped_pair']['valid_border_margin'], device=self.device)  # can set to other value
+                valid_mask = compute_valid_mask(torch.tensor([H, W]), inv_homography=inv_homography, erosion_radius=self.config['warped_pair']['valid_border_margin'], device=self.device, initial_mask=initial_valid_mask)  # can set to other value
                 input.update({'warped_valid_mask': valid_mask})
                 input.update({'homographies': homography, 'inv_homographies': inv_homography})
 

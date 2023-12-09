@@ -282,8 +282,6 @@ def export_detector_homoAdapt_gpu(config, output_dir, args):
 
     ## loop through all images
     for i, sample in tqdm(enumerate(test_loader)):
-        if sample["name"][0] != "20221114_114742_ssc10_u0001-20221114_073700_36_241e_3B_Visual_2":
-            continue
         img, mask_2D = sample["image"], sample["valid_mask"]
         img = img.transpose(0, 1)
         img_2D = sample["image_2D"].numpy().squeeze()

@@ -11,10 +11,11 @@ def split_groups(df, frac):
 if __name__ == "__main__":
     # OAM
     oam_ss = pd.read_csv(OAMSettings.subset_file, index_col=0)
-    oam_ss["hr_file"] = oam_ss["stack_name"].apply(lambda x: f"{(OAMSettings.compressed_mosaic_dir/x).relative_to(_COMPRESSED_DATA_DIR)}")
-    oam_ss["lr_file"] = oam_ss["stack_name"].apply(lambda x: f"{(OAMSettings.compressed_basemap_dir/x).relative_to(_COMPRESSED_DATA_DIR)}")
-    trainval_g, test_g = split_groups(oam_ss, 0.8)
+    oam_ss["hr_file"] = oam_ss["stack_name"].apply(lambda x: f"{(OAMSettings.compressed_mosaic_dir/f'{x}.jpg').relative_to(_COMPRESSED_DATA_DIR)}")
+    oam_ss["lr_file"] = oam_ss["stack_name"].apply(lambda x: f"{(OAMSettings.compressed_basemap_dir/f'{x}.jpg').relative_to(_COMPRESSED_DATA_DIR)}")
+    oam_ss["valid_mask_file"] = oam_ss["stack_name"].apply(lambda x: f"{(OAMSettings.valid_mask_dir/f'{x}.npy').relative_to(_COMPRESSED_DATA_DIR)}")
 
+    trainval_g, test_g = split_groups(oam_ss, 0.8)
     trainval_ss = oam_ss.query("group_num in @trainval_g")
     train_g, val_g = split_groups(trainval_ss, 0.8)
 
@@ -26,8 +27,9 @@ if __name__ == "__main__":
 
     # MAXAR
     maxar_ss = pd.read_csv(MaxarSettings.subset_file, index_col=0)
-    maxar_ss["hr_file"] = maxar_ss["stack_name"].apply(lambda x: f"{(MaxarSettings.compressed_maxar_dir/x).relative_to(_COMPRESSED_DATA_DIR)}")
-    maxar_ss["lr_file"] = maxar_ss["stack_name"].apply(lambda x: f"{(MaxarSettings.compressed_planet_dir/x).relative_to(_COMPRESSED_DATA_DIR)}")
+    maxar_ss["hr_file"] = maxar_ss["stack_name"].apply(lambda x: f"{(MaxarSettings.compressed_maxar_dir/f'{x}.jpg').relative_to(_COMPRESSED_DATA_DIR)}")
+    maxar_ss["lr_file"] = maxar_ss["stack_name"].apply(lambda x: f"{(MaxarSettings.compressed_planet_dir/f'{x}.jpg').relative_to(_COMPRESSED_DATA_DIR)}")
+    maxar_ss["valid_mask_file"] = maxar_ss["stack_name"].apply(lambda x: f"{(MaxarSettings.valid_mask_dir/f'{x}.npy').relative_to(_COMPRESSED_DATA_DIR)}")
 
     trainval_g, test_g = split_groups(maxar_ss, 0.8)
     trainval_ss = maxar_ss.query("group_num in @trainval_g")
@@ -42,7 +44,7 @@ if __name__ == "__main__":
     sat_ss = pd.read_csv(SatSettings.subset_file, index_col=0)
     sat_ss["hr_file"] = sat_ss["stack_name"].apply(lambda x: f"{(SatSettings.compressed_skysat_dir/f'{x}.jpg').relative_to(_COMPRESSED_DATA_DIR)}")
     sat_ss["lr_file"] = sat_ss["stack_name"].apply(lambda x: f"{(SatSettings.compressed_other_dir/f'{x}.jpg').relative_to(_COMPRESSED_DATA_DIR)}")
-    sat_ss["valid_mask_file"] = sat_ss["stack_name"].apply(lambda x: f"{(SatSettings.valid_mask_dir/f'{x}.npz').relative_to(_COMPRESSED_DATA_DIR)}")
+    sat_ss["valid_mask_file"] = sat_ss["stack_name"].apply(lambda x: f"{(SatSettings.valid_mask_dir/f'{x}.npy').relative_to(_COMPRESSED_DATA_DIR)}")
 
     trainval_g, test_g = split_groups(sat_ss, 0.8)
     trainval_ss = sat_ss.query("group_num in @trainval_g")
@@ -55,8 +57,9 @@ if __name__ == "__main__":
 
     # FLAIR
     flair_ss = pd.read_csv(FLAIRSettings.subset_file, index_col=0)
-    flair_ss["hr_file"] = flair_ss["stack_name"].apply(lambda x: f"{(FLAIRSettings.aerial_dir/x).relative_to(_COMPRESSED_DATA_DIR)}")
-    flair_ss["lr_file"] = flair_ss["stack_name"].apply(lambda x: f"{(FLAIRSettings.sen_dir/x).relative_to(_COMPRESSED_DATA_DIR)}")
+    flair_ss["hr_file"] = flair_ss["stack_name"].apply(lambda x: f"{(FLAIRSettings.aerial_dir/f'{x}.jpg').relative_to(_COMPRESSED_DATA_DIR)}")
+    flair_ss["lr_file"] = flair_ss["stack_name"].apply(lambda x: f"{(FLAIRSettings.sen_dir/f'{x}.jpg').relative_to(_COMPRESSED_DATA_DIR)}")
+    flair_ss["valid_mask_file"] = flair_ss["stack_name"].apply(lambda x: f"{(FLAIRSettings.valid_mask_dir/f'{x}.npy').relative_to(_COMPRESSED_DATA_DIR)}")
 
     trainval_ss = flair_ss.query("split == 'train'")
     train_g, val_g = split_groups(trainval_ss, 0.8)

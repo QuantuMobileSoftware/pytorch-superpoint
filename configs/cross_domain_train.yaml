@@ -2,9 +2,9 @@ data:
     dataset: 'CrossDomain'
     # dataset: "Coco"
 
-    labels: logs/trash/predictions
+    # labels: logs/trash/predictions
     # labels: logs/export_magicpoint_crossdomain_nooam_lowthresh/predictions
-    # labels: logs/export_magicpoint_crossdomain/predictions
+    labels: logs/export_cross_domain_clean/predictions
     # labels: logs/huh/predictions
     # labels: logs/magicpoint_synth_homoAdapt_coco_crossdomain/predictions  # cross domain
 
