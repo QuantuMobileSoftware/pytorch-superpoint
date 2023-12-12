@@ -45,10 +45,10 @@ if __name__ == "__main__":
             h, w = int(_md.height/coef), int(_md.width/coef)
             # TODO: calc crs
             utm_crs = point_wgs2utm(*_md.lnglat())
-            with WarpedVRT(_md, crs=utm_crs, warp_mem_limit=50000, warp_extras={'NUM_THREADS':7}, resampling=Resampling.lanczos) as mosaic_ds:
+            with WarpedVRT(_md, crs=utm_crs, warp_mem_limit=50000, warp_extras={'NUM_THREADS':7}, resampling=Resampling.lanczos, add_alpha=True) as mosaic_ds:
                 window = get_data_window(mosaic_ds.read((1,2,3), out_shape=(h,w), masked=True))
                 res_window = Window(window.col_off*coef, window.row_off*coef, window.width*coef, window.height*coef)
-                mosaic_img = mosaic_ds.read((1,2,3), out_shape=(h,w), window=res_window)
+                mosaic_img = mosaic_ds.read((1,2,3,4), out_shape=(h,w), window=res_window)
                 mosaic_img = reshape_as_image(mosaic_img)
                 mosaic_transform = mosaic_ds.window_transform(res_window)
                 mosaic_transform = Affine(OAMSettings.target_mosaic_gsd, mosaic_transform.b, mosaic_transform.c, mosaic_transform.d, -OAMSettings.target_mosaic_gsd, mosaic_transform.f)
@@ -87,8 +87,8 @@ if __name__ == "__main__":
                 continue
 
             mosaic_crop = cv2.resize(mosaic_crop, (basemap_crop.shape[1], basemap_crop.shape[0]), interpolation=cv2.INTER_LANCZOS4)
-            empty_mosaic = np.logical_or.reduce(mosaic_crop==0, axis=-1)
-            empty_basemap = np.logical_or.reduce(basemap_crop==0, axis=-1)
+            empty_mosaic = mosaic_crop[...,3] == 0  # empty from alpha band
+            empty_basemap = np.zeros_like(empty_mosaic)  # these are all full
             empty = np.logical_or(empty_mosaic, empty_basemap)
             empty_ratio = empty.sum() / np.prod(basemap_crop.shape[:2])
             if (empty_ratio >= OAMSettings.max_empty_ratio):

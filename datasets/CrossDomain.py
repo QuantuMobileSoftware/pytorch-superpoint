@@ -34,7 +34,6 @@ def get_aug_common(task="train", h=240, w=320, export=False):
             A.Perspective(scale=(0.05, 0.1), pad_mode=cv2.BORDER_CONSTANT, p=0.5),
             A.RandomResizedCrop(h, w, scale=(0.1,1), ratio=(h/w, h/w), always_apply=True),
             # A.RandomResizedCrop(h, w, scale=(0.9,1), ratio=(h/w, h/w), always_apply=True),
-            # A.NoOp(),
         ], additional_targets=targets, keypoint_params=keypoint_params)
     return aug_common
 
@@ -102,8 +101,8 @@ class CrossDomain(data.Dataset):
         assert task in ["train", "val", "test"]
         base_path = Path(COMPRESSED_CROSS_DOMAIN_DIR)
         split = pd.read_csv(base_path/"split.csv").query("split == @task")
-        # split = split[split["hr_file"].str.contains("maxar")]
-        split = split[split["hr_file"].str.contains("satellites")]
+        # split = split[split["hr_file"].str.contains("flair")]
+        # split = split[split["hr_file"].str.contains("satellites")]
         # split = split.query("stack_name == '20221114_114742_ssc10_u0001-20221114_073700_36_241e_3B_Visual_2'")
         self.task = task
 

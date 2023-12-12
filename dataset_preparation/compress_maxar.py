@@ -39,9 +39,11 @@ if __name__ == "__main__":
         maxar_path = MaxarSettings.maxar_dir/f"{stack_name}.tif"
         planet_path = MaxarSettings.planet_dir/f"{stack_name}.tif"
 
-        with rio.open(maxar_path, "r") as maxar_ds:
+        with rio.open(maxar_path, "r", add_alpha=True) as maxar_ds:
             window = get_data_window(maxar_ds.read((1,2,3), masked=True))
-            maxar_img = maxar_ds.read((1,2,3), window=window)
+            maxar_img = maxar_ds.read((1,2,3), window=window, masked=True)
+            mask = np.logical_or.reduce(maxar_img.mask == True, axis=0, keepdims=True)
+            maxar_img = np.concatenate([maxar_img.base, mask], axis=0)
             maxar_img = reshape_as_image(maxar_img)
             maxar_transform = maxar_ds.window_transform(window)
             maxar_crs = maxar_ds.crs
@@ -73,14 +75,14 @@ if __name__ == "__main__":
 
             maxar_crop = maxar_img[mw.top_px:mw.bottom_px, mw.left_px:mw.right_px]
             try:
-                planet_crop = reshape_as_image(planetx_utm.rio.clip_box(*mw.bounds_geo()).to_numpy()[:3])
+                planet_crop = reshape_as_image(planetx_utm.rio.clip_box(*mw.bounds_geo()).to_numpy())
             except rioxarray.exceptions.NoDataInBounds:
                 print("No data")
                 continue
 
             maxar_crop = cv2.resize(maxar_crop, (planet_crop.shape[1], planet_crop.shape[0]), interpolation=cv2.INTER_LANCZOS4)
-            empty_maxar = np.logical_or.reduce(maxar_crop==0, axis=-1)
-            empty_planet = np.logical_or.reduce(planet_crop==0, axis=-1)
+            empty_maxar = maxar_crop[...,3]
+            empty_planet = np.zeros_like(empty_maxar)
             empty = np.logical_or(empty_maxar, empty_planet)
             empty_ratio = empty.sum() / np.prod(planet_crop.shape[:2])
             if (empty_ratio >= MaxarSettings.max_empty_ratio):

@@ -62,10 +62,12 @@ if __name__ == "__main__":
 
     group_num = 0
     for skysat_path, other_paths in tqdm(pairs.items()):
-        with rio.open(skysat_path, "r") as skysat_ds:
+        with rio.open(skysat_path, "r", add_alpha=True) as skysat_ds:
             assert not skysat_ds.crs.is_geographic
             window = get_data_window(skysat_ds.read((1,2,3), masked=True))
-            skysat_img = skysat_ds.read((1,2,3), window=window)
+            skysat_img = skysat_ds.read((1,2,3), window=window, masked=True)
+            mask = np.logical_or.reduce(skysat_img.mask == True, axis=0, keepdims=True)
+            skysat_img = np.concatenate([skysat_img.base, mask], axis=0)
             skysat_img = reshape_as_image(skysat_img)
             skysat_transform = skysat_ds.window_transform(window)
             skysat_crs = skysat_ds.crs
@@ -86,7 +88,6 @@ if __name__ == "__main__":
 
         for other_path in other_paths:
             stack_name = f"{skysat_path.parent.parent.stem}-{other_path.stem}"
-            print(stack_name)
             otherx = rioxarray.open_rasterio(other_path)
             otherx_utm = otherx.rio.reproject(skysat_crs, esampling=Resampling.lanczos)
 
@@ -100,13 +101,17 @@ if __name__ == "__main__":
 
                 skysat_crop = skysat_img[mw.top_px:mw.bottom_px, mw.left_px:mw.right_px]
                 try:
-                    other_crop = reshape_as_image(otherx_utm.rio.clip_box(*mw.bounds_geo()).to_numpy()[:3])
+                    other_crop = reshape_as_image(otherx_utm.rio.clip_box(*mw.bounds_geo()).to_numpy())
                 except rioxarray.exceptions.NoDataInBounds:
                     print("No data")
                     continue
                 skysat_crop = cv2.resize(skysat_crop, (other_crop.shape[1], other_crop.shape[0]), interpolation=cv2.INTER_LANCZOS4)
-                empty_skysat = np.logical_or.reduce(skysat_crop==0, axis=-1)
-                empty_other = np.logical_or.reduce(other_crop==0, axis=-1)
+
+                empty_skysat = skysat_crop[...,3]  #np.logical_or.reduce(skysat_crop==0, axis=-1)
+                if "TCI" in stack_name:
+                    empty_other = np.logical_or.reduce(other_crop==0, axis=-1)
+                else:
+                    empty_other = other_crop[...,3] == 0
                 empty = np.logical_or(empty_skysat, empty_other)
                 empty_ratio = empty.sum() / np.prod(skysat_crop.shape[:2])
                 if (empty_ratio >= SatSettings.max_empty_ratio):

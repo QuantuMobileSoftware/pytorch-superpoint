@@ -369,6 +369,7 @@ class Train_model_heatmap(Train_model_frontend):
             {
                 "loss": loss,
                 "loss_det": loss_det,
+                "loss_desc": loss_desc,
                 "loss_det_warp": loss_det_warp,
                 "positive_dist": positive_dist,
                 "negative_dist": negative_dist,
