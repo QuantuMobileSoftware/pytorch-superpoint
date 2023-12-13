@@ -32,7 +32,7 @@ def get_aug_common(task="train", h=240, w=320, export=False):
         aug_common = A.Compose([
             A.Rotate(limit=180, border_mode=cv2.BORDER_CONSTANT, p=0.5),
             A.Perspective(scale=(0.05, 0.1), pad_mode=cv2.BORDER_CONSTANT, p=0.5),
-            A.RandomResizedCrop(h, w, scale=(0.1,1), ratio=(h/w, h/w), always_apply=True),
+            A.RandomResizedCrop(h, w, scale=(0.3,1), ratio=(h/w, h/w), always_apply=True),
             # A.RandomResizedCrop(h, w, scale=(0.9,1), ratio=(h/w, h/w), always_apply=True),
         ], additional_targets=targets, keypoint_params=keypoint_params)
     return aug_common
@@ -101,9 +101,10 @@ class CrossDomain(data.Dataset):
         assert task in ["train", "val", "test"]
         base_path = Path(COMPRESSED_CROSS_DOMAIN_DIR)
         split = pd.read_csv(base_path/"split.csv").query("split == @task")
-        # split = split[split["hr_file"].str.contains("flair")]
-        # split = split[split["hr_file"].str.contains("satellites")]
-        # split = split.query("stack_name == '20221114_114742_ssc10_u0001-20221114_073700_36_241e_3B_Visual_2'")
+        split = split[~split["hr_file"].str.contains("openaerialmap")]
+        split = split[~split["hr_file"].str.contains("flair")]
+        # split = split[split["hr_file"].str.contains("maxar")]
+        # split = split.query("stack_name == 'SatNav_Verbove_2023_06_04_SS_skysatcollect_visual-T36TYT_20230605T083601_TCI_22'")
         self.task = task
 
         self.aug_common = get_aug_common(self.task, *config["preprocessing"]["resize"], export=export)
@@ -158,6 +159,11 @@ class CrossDomain(data.Dataset):
         lr = read_jpeg(lr_file)
         hr = read_jpeg(hr_file)
         valid_mask = np.load(valid_mask_file).astype(int)
+        h_div8 = lr.shape[0] - (lr.shape[0] % 8)
+        w_div8 = lr.shape[1] - (lr.shape[1] % 8)
+        lr = lr[:h_div8, :w_div8]
+        hr = hr[:h_div8, :w_div8]
+        valid_mask = valid_mask[:h_div8, :w_div8]
         return lr, hr, valid_mask
 
     def _read_random(self, lr_file, hr_file, valid_mask_file):
@@ -167,7 +173,7 @@ class CrossDomain(data.Dataset):
         lr = read_jpeg(lr_file)
         hr = read_jpeg(hr_file)
         hr = lr if is_lr else hr
-        valid_mask = np.load(valid_mask_file)
+        valid_mask = np.load(valid_mask_file).astype(int)
         return lr, hr, valid_mask
 
     def points_to_2D(self, pnts, H, W):
@@ -195,7 +201,7 @@ class CrossDomain(data.Dataset):
         if not self.single_domain:
             lr_image, hr_image, valid_mask = self._read_pair(sample["image_cross_domain"], sample["image"], sample["valid_mask_file"])
         else:
-            lr_image, hr_image, valid_mask = self._read_random(sample["image_cross_domain"], sample["image"])
+            lr_image, hr_image, valid_mask = self._read_random(sample["image_cross_domain"], sample["image"], sample["valid_mask_file"])
         tr = self.aug_common(image=lr_image, image1=hr_image, mask=valid_mask, keypoints=pnts)  # TODO: add keypoints to here if self.labels
         lr_image, hr_image, initial_valid_mask, pnts = tr["image"], tr["image1"], tr["mask"], np.array(tr["keypoints"])
 

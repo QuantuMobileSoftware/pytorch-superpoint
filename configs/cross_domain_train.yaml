@@ -4,7 +4,7 @@ data:
 
     # labels: logs/trash/predictions
     # labels: logs/export_magicpoint_crossdomain_nooam_lowthresh/predictions
-    labels: logs/export_cross_domain_clean/predictions
+    labels: logs/cross_domain_clean_div8/predictions
     # labels: logs/huh/predictions
     # labels: logs/magicpoint_synth_homoAdapt_coco_crossdomain/predictions  # cross domain
 
@@ -72,13 +72,14 @@ model:
     other_settings: 'train 2d, gauss 0.2'
 
 
-retrain: True # set true for new model
+retrain: True  # set true for new model
 reset_iter: True # set true to set the iteration number to 0
-train_iter: 10000  # 200000
+load_optim: False
+train_iter: 20000  # 200000
 validation_interval: 500 # 2000
 tensorboard_interval: 250 # 200
 save_interval: 500 # 2000
-validation_size: 500
+validation_size: 10
 skip_val_on_iter0: false
 
 # pretrained:

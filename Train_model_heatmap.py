@@ -165,6 +165,7 @@ class Train_model_heatmap(Train_model_frontend):
             loss_func = nn.MSELoss(reduction="mean")
             loss = loss_func(input, target)
         elif loss_type == "softmax":
+            # TODO: change to BCEWithLogits
             loss_func_BCE = nn.BCELoss(reduction='none').cuda()
             loss = loss_func_BCE(nn.functional.softmax(input, dim=1), target)
             loss = (loss.sum(dim=1) * mask).sum()
