@@ -12,6 +12,7 @@ import torch.optim
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.data
+from einops import rearrange
 # from tqdm import tqdm
 # from utils.loader import dataLoader, modelLoader, pretrainedLoader
 import logging
@@ -165,11 +166,21 @@ class Train_model_heatmap(Train_model_frontend):
             loss_func = nn.MSELoss(reduction="mean")
             loss = loss_func(input, target)
         elif loss_type == "softmax":
-            # TODO: change to BCEWithLogits
-            loss_func_BCE = nn.BCELoss(reduction='none').cuda()
-            loss = loss_func_BCE(nn.functional.softmax(input, dim=1), target)
-            loss = (loss.sum(dim=1) * mask).sum()
-            loss = loss / (mask.sum() + 1e-10)
+            b, c, h, w = input.shape
+            input_flat = rearrange(input, "b c h w -> (b h w) c")
+            target_flat = torch.argmax(rearrange(target, "b c h w -> (b h w) c"), dim=1).view(-1,1)
+            # prepare an (N,C) array of 1s at the locations of ground truth
+            logp = nn.functional.log_softmax(input_flat)
+            loss = -torch.gather(logp, 1, target_flat).view(-1)
+            loss = rearrange(loss, "(b h w) -> b h w", b=b, h=h, w=w)
+            loss = loss * mask
+            loss = loss.sum() / (mask.sum() + 1e-10)
+            # loss_func_BCE = nn.BCELoss(reduction='none').cuda()
+            # loss = loss_func_BCE(nn.functional.softmax(input, dim=1), target)
+            # loss = (loss.sum(dim=1) * mask).sum()
+            # loss = loss / (mask.sum() + 1e-10)
+            # print(loss)
+            # exit(0)
         return loss
 
     def train_val_sample(self, sample, n_iter=0, train=False):
@@ -221,151 +232,93 @@ class Train_model_heatmap(Train_model_frontend):
         self.optimizer.zero_grad()
 
         # forward + backward + optimize
-        if train:
-            # print("img: ", img.shape, ", img_warp: ", img_warp.shape)
-            outs = self.net(img.to(self.device))
-            semi, coarse_desc = outs["semi"], outs["desc"]
-            if if_warp:
-                outs_warp = self.net(img_warp.to(self.device))
-                semi_warp, coarse_desc_warp = outs_warp["semi"], outs_warp["desc"]
-        else:
-            with torch.no_grad():
-                outs = self.net(img.to(self.device))
-                semi, coarse_desc = outs["semi"], outs["desc"]
+        with torch.autocast(device_type='cuda', dtype=torch.float16):
+            if train:
+                # print("img: ", img.shape, ", img_warp: ", img_warp.shape)
+                    outs = self.net(img.to(self.device))
+                    semi, coarse_desc = outs["semi"], outs["desc"]
+                    if if_warp:
+                        outs_warp = self.net(img_warp.to(self.device))
+                        semi_warp, coarse_desc_warp = outs_warp["semi"], outs_warp["desc"]
+            else:
+                with torch.no_grad():
+                    outs = self.net(img.to(self.device))
+                    semi, coarse_desc = outs["semi"], outs["desc"]
+                    if if_warp:
+                        outs_warp = self.net(img_warp.to(self.device))
+                        semi_warp, coarse_desc_warp = outs_warp["semi"], outs_warp["desc"]
+                    pass
+
+            # detector loss
+            from utils.utils import labels2Dto3D
+
+            if self.gaussian:
+                labels_2D = sample["labels_2D_gaussian"]
                 if if_warp:
-                    outs_warp = self.net(img_warp.to(self.device))
-                    semi_warp, coarse_desc_warp = outs_warp["semi"], outs_warp["desc"]
-                pass
+                    warped_labels = sample["warped_labels_gaussian"]
+            else:
+                labels_2D = sample["labels_2D"]
+                if if_warp:
+                    warped_labels = sample["warped_labels"]
 
-        # detector loss
-        from utils.utils import labels2Dto3D
-
-        if self.gaussian:
-            labels_2D = sample["labels_2D_gaussian"]
-            if if_warp:
-                warped_labels = sample["warped_labels_gaussian"]
-        else:
-            labels_2D = sample["labels_2D"]
-            if if_warp:
-                warped_labels = sample["warped_labels"]
-
-        add_dustbin = False
-        if det_loss_type == "l2":
             add_dustbin = False
-        elif det_loss_type == "softmax":
-            add_dustbin = True
+            if det_loss_type == "l2":
+                add_dustbin = False
+            elif det_loss_type == "softmax":
+                add_dustbin = True
 
-        labels_3D = labels2Dto3D(
-            labels_2D.to(self.device), cell_size=self.cell_size, add_dustbin=add_dustbin
-        ).float()
-        mask_3D_flattened = self.getMasks(mask_2D, self.cell_size, device=self.device)
-        loss_det = self.detector_loss(
-            input=outs["semi"],
-            target=labels_3D.to(self.device),
-            mask=mask_3D_flattened,
-            loss_type=det_loss_type,
-        )
-        # warp
-        if if_warp:
             labels_3D = labels2Dto3D(
-                warped_labels.to(self.device),
-                cell_size=self.cell_size,
-                add_dustbin=add_dustbin,
+                labels_2D.to(self.device), cell_size=self.cell_size, add_dustbin=add_dustbin
             ).float()
-            mask_3D_flattened = self.getMasks(
-                mask_warp_2D, self.cell_size, device=self.device
-            )
-            loss_det_warp = self.detector_loss(
-                input=outs_warp["semi"],
+            mask_3D_flattened = self.getMasks(mask_2D, self.cell_size, device=self.device)
+            loss_det = self.detector_loss(
+                input=outs["semi"],
                 target=labels_3D.to(self.device),
                 mask=mask_3D_flattened,
                 loss_type=det_loss_type,
             )
-        else:
-            loss_det_warp = torch.tensor([0]).float().to(self.device)
-
-
-        ## get labels, masks, loss for detection
-        # labels3D_in_loss = self.getLabels(labels_2D, self.cell_size, device=self.device)
-        # mask_3D_flattened = self.getMasks(mask_2D, self.cell_size, device=self.device)
-        # loss_det = self.get_loss(semi, labels3D_in_loss, mask_3D_flattened, device=self.device)
-
-        ## warping
-        # labels3D_in_loss = self.getLabels(labels_warp_2D, self.cell_size, device=self.device)
-        # mask_3D_flattened = self.getMasks(mask_warp_2D, self.cell_size, device=self.device)
-        # loss_det_warp = self.get_loss(semi_warp, labels3D_in_loss, mask_3D_flattened, device=self.device)
-
-        mask_desc = mask_3D_flattened.unsqueeze(1)
-        lambda_loss = self.config["model"]["lambda_loss"]
-        # print("mask_desc: ", mask_desc.shape)
-        # print("mask_warp_2D: ", mask_warp_2D.shape)
-
-        # descriptor loss
-        if lambda_loss > 0:
-            assert if_warp == True, "need a pair of images"
-            loss_desc, mask, positive_dist, negative_dist = self.descriptor_loss(
-                coarse_desc,
-                coarse_desc_warp,
-                mat_H,
-                mask_valid=mask_desc,
-                device=self.device,
-                **self.desc_params
-            )
-        else:
-            ze = torch.tensor([0]).to(self.device)
-            loss_desc, positive_dist, negative_dist = ze, ze, ze
-
-        loss = loss_det + loss_det_warp
-        if lambda_loss > 0:
-            loss += lambda_loss * loss_desc
-
-        ##### try to minimize the error ######
-        add_res_loss = False
-        if add_res_loss and n_iter % 10 == 0:
-            print("add_res_loss!!!")
-            heatmap_org = self.get_heatmap(semi, det_loss_type)  # tensor []
-            heatmap_org_nms_batch = self.heatmap_to_nms(
-                self.images_dict, heatmap_org, name="heatmap_org"
-            )
+            # warp
             if if_warp:
-                heatmap_warp = self.get_heatmap(semi_warp, det_loss_type)
-                heatmap_warp_nms_batch = self.heatmap_to_nms(
-                    self.images_dict, heatmap_warp, name="heatmap_warp"
+                labels_3D = labels2Dto3D(
+                    warped_labels.to(self.device),
+                    cell_size=self.cell_size,
+                    add_dustbin=add_dustbin,
+                ).float()
+                mask_3D_flattened = self.getMasks(
+                    mask_warp_2D, self.cell_size, device=self.device
                 )
-
-            # original: pred
-            ## check the loss on given labels!
-            outs_res = self.get_residual_loss(
-                sample["labels_2D"]
-                * to_floatTensor(heatmap_org_nms_batch).unsqueeze(1),
-                heatmap_org,
-                sample["labels_res"],
-                name="original_pred",
-            )
-            loss_res_ori = (outs_res["loss"] ** 2).mean()
-            # warped: pred
-            if if_warp:
-                outs_res_warp = self.get_residual_loss(
-                    sample["warped_labels"]
-                    * to_floatTensor(heatmap_warp_nms_batch).unsqueeze(1),
-                    heatmap_warp,
-                    sample["warped_res"],
-                    name="warped_pred",
+                loss_det_warp = self.detector_loss(
+                    input=outs_warp["semi"],
+                    target=labels_3D.to(self.device),
+                    mask=mask_3D_flattened,
+                    loss_type=det_loss_type,
                 )
-                loss_res_warp = (outs_res_warp["loss"] ** 2).mean()
             else:
-                loss_res_warp = torch.tensor([0]).to(self.device)
-            loss_res = loss_res_ori + loss_res_warp
-            # print("loss_res requires_grad: ", loss_res.requires_grad)
-            loss += loss_res
-            self.scalar_dict.update(
-                {"loss_res_ori": loss_res_ori, "loss_res_warp": loss_res_warp}
-            )
+                loss_det_warp = torch.tensor([0]).float().to(self.device)
 
-        #######################################
+            mask_desc = mask_3D_flattened.unsqueeze(1)
+            lambda_loss = self.config["model"]["lambda_loss"]
+
+            # descriptor loss
+            if lambda_loss > 0:
+                assert if_warp == True, "need a pair of images"
+                loss_desc, mask, positive_dist, negative_dist = self.descriptor_loss(
+                    coarse_desc,
+                    coarse_desc_warp,
+                    mat_H,
+                    mask_valid=mask_desc,
+                    device=self.device,
+                    **self.desc_params
+                )
+            else:
+                ze = torch.tensor([0]).to(self.device)
+                loss_desc, positive_dist, negative_dist = ze, ze, ze
+
+            loss = loss_det + loss_det_warp
+            if lambda_loss > 0:
+                loss += lambda_loss * loss_desc
 
         self.loss = loss
-
         self.scalar_dict.update(
             {
                 "loss": loss,
@@ -381,9 +334,11 @@ class Train_model_heatmap(Train_model_frontend):
         self.input_to_imgDict(sample, self.images_dict)
 
         if train:
-            loss.backward()
-            self.optimizer.step()
+            scaled_loss = self.scaler.scale(loss)
+            scaled_loss.backward()
+            self.scaler.step(self.optimizer)
             self.scheduler.step()
+            self.scaler.update()
 
         skip_validation_on_this_step = skip_val_on_iter0 and n_iter == 0
         if ((n_iter % tb_interval == 0) and not skip_validation_on_this_step) or task == "val":

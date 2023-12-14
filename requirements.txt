@@ -20,3 +20,4 @@ geopandas==0.13.2
 orjson==3.9.10
 PyTurboJPEG==1.7.2
 albumentations==1.3.1
+einops==0.7.0

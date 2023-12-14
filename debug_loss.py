@@ -57,6 +57,10 @@ if __name__ == "__main__":
     train_agent.dataParallel()
 
     for sample in train_loader:
-        print(sample)
+        print(sample.keys())
+        # sample["warped_valid_mask"] = torch.ones_like(sample["warped_valid_mask"])
+        # sample["valid_mask"] = torch.ones_like(sample["valid_mask"])
+        # sample["labels_2D_gaussian"] = torch.zeros_like(sample["labels_2D_gaussian"])
+        # sample["warped_labels_gaussian"] = torch.zeros_like(sample["warped_labels_gaussian"])
         train_agent.train_val_sample(sample, train=True)
         exit(0)

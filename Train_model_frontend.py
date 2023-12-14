@@ -213,6 +213,7 @@ class Train_model_frontend(object):
         scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.config["model"]["learning_rate"], total_steps=self.config["train_iter"])
         scheduler.last_epoch = n_iter-1
         self.net = net
+        self.scaler = torch.cuda.amp.GradScaler()
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.n_iter = setIter(n_iter)
