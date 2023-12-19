@@ -31,9 +31,9 @@ def get_aug_common(task="train", h=240, w=320, export=False):
     else:
         aug_common = A.Compose([
             A.Rotate(limit=180, border_mode=cv2.BORDER_CONSTANT, p=0.5),
-            A.Perspective(scale=(0.05, 0.1), pad_mode=cv2.BORDER_CONSTANT, p=0.5),
-            A.RandomResizedCrop(h, w, scale=(0.3,1), ratio=(h/w, h/w), always_apply=True),
-            # A.RandomResizedCrop(h, w, scale=(0.9,1), ratio=(h/w, h/w), always_apply=True),
+            A.Perspective(scale=(0.05, 0.2), pad_mode=cv2.BORDER_CONSTANT, p=0.5),
+            # A.RandomResizedCrop(h, w, scale=(0.3,1), ratio=(h/w, h/w), always_apply=True),
+            A.RandomResizedCrop(h, w, scale=(0.9,1), ratio=(h/w, h/w), always_apply=True),
         ], additional_targets=targets, keypoint_params=keypoint_params)
     return aug_common
 
@@ -42,11 +42,11 @@ def get_aug_sep(task="train", export=False):
     if export: task = "export"
     if task == "train":
         aug_px = A.Compose([
-            A.ChannelShuffle(p=0.5),
-            A.ColorJitter(p=0.5),
-            A.GaussNoise(p=0.5),
-            A.RandomBrightnessContrast(p=0.5),
-            A.Sharpen(p=0.5),
+            # A.ChannelShuffle(p=0.5),
+            # A.ColorJitter(p=0.5),
+            # A.GaussNoise(p=0.5),
+            # A.RandomBrightnessContrast(brightness_limit=0.5, brightness_by_max=False, p=0.5),
+            # A.Sharpen(p=0.5),
             A.ToGray(always_apply=True),
             A.ToFloat(always_apply=True),
         ])
@@ -195,7 +195,7 @@ class CrossDomain(data.Dataset):
         input  = {}
         input.update(sample)
 
-        pnts = np.load(sample['points'])['pts'][:, :2] if self.labels else None
+        pnts = np.load(sample['points'])['pts'][:, :3] if self.labels else None
 
         # image
         if not self.single_domain:

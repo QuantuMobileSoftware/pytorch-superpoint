@@ -29,8 +29,8 @@ data:
             scaling: true
             perspective: true
             scaling_amplitude: 0.2
-            perspective_amplitude_x: 0.1
-            perspective_amplitude_y: 0.1
+            perspective_amplitude_x: 0.2
+            perspective_amplitude_y: 0.2
             patch_ratio: 0.85
             max_angle: 1.57
             allow_artifacts: true
@@ -51,9 +51,9 @@ model:
 
 
     batch_size: 24
-    eval_batch_size: 16
+    eval_batch_size: 24
     learning_rate: 0.01 # 0.0001
-    detection_threshold: 0.005 # 0.015
+    detection_threshold: 0.0005 # 0.015
     lambda_loss: 1
     nms: 4
     dense_loss:
@@ -72,10 +72,10 @@ model:
     other_settings: 'train 2d, gauss 0.2'
 
 
-retrain: True  # set true for new model
+retrain: True # set true for new model
 reset_iter: True # set true to set the iteration number to 0
 load_optim: False
-train_iter: 20000  # 200000
+train_iter: 10000  # 200000
 validation_interval: 500 # 2000
 tensorboard_interval: 250 # 200
 save_interval: 500 # 2000
@@ -85,4 +85,4 @@ skip_val_on_iter0: false
 # pretrained:
 pretrained: 'logs/magicpoint_synth_t2/checkpoints/superPointNet_100000_checkpoint.pth.tar'
 # pretrained: 'logs/superpoint_coco_single_domain/checkpoints/superPointNet_170400_checkpoint.pth.tar'
-# pretrained: 'logs/superpoint_bigbigstep_onecycle/checkpoints/superPointNet_5000_checkpoint.pth.tar'
+# pretrained: '/home/topkech/work/pytorch-superpoint/logs/cd_100k_edge_cont/checkpoints/superPointNet_45000_checkpoint.pth.tar'

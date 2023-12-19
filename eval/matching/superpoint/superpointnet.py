@@ -7,7 +7,7 @@ from .unet_parts import *
 from .utils import box_nms, getPtsFromHeatmap, flattenDetection
 
 from .losses import extract_patches, soft_argmax_2d, do_log
-SUPERPOINT_THRESHOLD = 0.05
+SUPERPOINT_THRESHOLD = 0.005
 
 def toNumpy(tensor):
     return tensor.detach().cpu().numpy()
